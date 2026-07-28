@@ -449,14 +449,25 @@ async function initBaileysSocket() {
       if (!rawJid || rawJid === 'status@broadcast') continue;
       const remoteJid = jidNormalizedUser(rawJid);
 
+      let content = msg.message;
+      if (content.ephemeralMessage) content = content.ephemeralMessage.message;
+      if (content.viewOnceMessage) content = content.viewOnceMessage.message;
+      if (content.viewOnceMessageV2) content = content.viewOnceMessageV2.message;
+      if (content.documentWithCaptionMessage) content = content.documentWithCaptionMessage.message;
+      if (content.editedMessage) content = content.editedMessage.message?.protocolMessage?.editedMessage || content.editedMessage.message;
+
+      if (!content) continue;
+
       const body =
-        msg.message.conversation ||
-        msg.message.extendedTextMessage?.text ||
-        msg.message.imageMessage?.caption ||
-        msg.message.videoMessage?.caption ||
-        (msg.message.imageMessage ? '📷 Image' : '') ||
-        (msg.message.audioMessage ? '🎵 Audio' : '') ||
-        (msg.message.documentMessage ? '📄 Document' : '') ||
+        content.conversation ||
+        content.extendedTextMessage?.text ||
+        content.imageMessage?.caption ||
+        content.videoMessage?.caption ||
+        content.templateButtonReplyMessage?.selectedId ||
+        content.buttonsResponseMessage?.selectedButtonId ||
+        (content.imageMessage ? '📷 Image' : '') ||
+        (content.audioMessage ? '🎵 Audio' : '') ||
+        (content.documentMessage ? '📄 Document' : '') ||
         '';
 
       const timestamp = Number(msg.messageTimestamp || Math.floor(Date.now() / 1000));
@@ -470,8 +481,8 @@ async function initBaileysSocket() {
         to: fromMe ? remoteJid : (sock.user ? jidNormalizedUser(sock.user.id) : ''),
         fromMe,
         timestamp,
-        type: msg.message.imageMessage ? 'image' : 'chat',
-        hasMedia: Boolean(msg.message.imageMessage || msg.message.videoMessage || msg.message.audioMessage),
+        type: content.imageMessage ? 'image' : 'chat',
+        hasMedia: Boolean(content.imageMessage || content.videoMessage || content.audioMessage),
         author: msg.key.participant || null,
         chatId: remoteJid
       };
