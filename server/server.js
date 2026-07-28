@@ -784,29 +784,36 @@ app.get('/api/status', (req, res) => {
 app.post('/api/auth/verify-passcode', async (req, res) => {
   const session = req.sessionInstance;
   const { passcode } = req.body || {};
+  const inputPass = passcode ? String(passcode).trim() : '';
 
-  if (session && session.isFresh) {
+  if (!inputPass || inputPass.length < 4) {
+    return res.status(400).json({ success: false, error: 'Passcode must be at least 4 characters long.' });
+  }
+
+  // Check 1: Match against current memory or local disk passcode
+  let isValid = Boolean(session.passcode && String(session.passcode).trim() === inputPass);
+
+  // Check 2: If not matching, check Cloud Firestore for saved session passcode!
+  if (!isValid) {
     try {
       const meta = await loadSessionMetaFromFirestore(session.sessionId);
-      if (meta && meta.passcode) {
+      if (meta && meta.passcode && String(meta.passcode).trim() === inputPass) {
         session.passcode = String(meta.passcode).trim();
         delete session.isFresh;
+        saveSessionStoreToDisk(session);
+        isValid = true;
       }
     } catch (e) {}
   }
 
-  // If session is fresh (first time logging into this Session ID), bind the provided passcode!
-  if (session && session.isFresh && passcode && String(passcode).trim().length >= 4) {
-    session.passcode = String(passcode).trim();
+  // Check 3: If session is fresh (first user logging into this Session ID), bind this passcode!
+  if (!isValid && session && session.isFresh) {
+    session.passcode = inputPass;
     delete session.isFresh;
     saveSessionStoreToDisk(session);
+    syncSessionMetaToFirestore(session.sessionId, session.passcode, session.clientState).catch(() => null);
+    isValid = true;
   }
-
-  const isValid = Boolean(
-    session.passcode &&
-    passcode &&
-    String(passcode).trim() === String(session.passcode).trim()
-  );
 
   if (!isValid) {
     return res.status(401).json({ success: false, error: 'Invalid session passcode. Access denied.' });
@@ -828,8 +835,13 @@ app.post('/api/auth/set-passcode', verifyPasscodeAuth, (req, res) => {
     return res.status(400).json({ error: 'Passcode must be at least 4 characters long.' });
   }
 
-  session.passcode = String(newPasscode).trim();
+  const cleanPasscode = String(newPasscode).trim();
+  session.passcode = cleanPasscode;
+  delete session.isFresh;
+
   saveSessionStoreToDisk(session);
+  syncSessionMetaToFirestore(session.sessionId, cleanPasscode, session.clientState).catch(() => null);
+
   res.json({ success: true, passcode: session.passcode, message: 'Passcode updated successfully!' });
 });
 
