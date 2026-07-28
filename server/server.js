@@ -13,7 +13,9 @@ const {
   syncChatToFirestore,
   syncMessageToFirestore,
   loadTasksFromFirestore,
-  loadChatsFromFirestore
+  loadChatsFromFirestore,
+  syncSessionMetaToFirestore,
+  loadSessionMetaFromFirestore
 } = require('./services/firebase');
 
 const {
@@ -183,6 +185,7 @@ function saveSessionStoreToDisk(session) {
       tasks: Array.from(session.tasksMap.values())
     };
     fs.writeFileSync(session.storePath, JSON.stringify(data, null, 2), 'utf-8');
+    syncSessionMetaToFirestore(session.sessionId, session.passcode, session.clientState).catch(() => null);
   } catch (err) {
     console.error(`[Session ${session.sessionId}] Error writing store.json:`, err.message);
   }
@@ -190,6 +193,12 @@ function saveSessionStoreToDisk(session) {
 
 async function loadSessionFromFirestore(session) {
   try {
+    const meta = await loadSessionMetaFromFirestore(session.sessionId);
+    if (meta && meta.passcode) {
+      session.passcode = String(meta.passcode).trim();
+      delete session.isFresh;
+    }
+
     const firestoreTasks = await loadTasksFromFirestore(session.sessionId);
     if (firestoreTasks && firestoreTasks.length > 0) {
       firestoreTasks.forEach(t => {

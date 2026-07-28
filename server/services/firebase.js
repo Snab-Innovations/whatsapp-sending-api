@@ -171,6 +171,47 @@ async function loadChatsFromFirestore(sessionId = 'default') {
   }
 }
 
+/**
+ * Syncs session credentials (sessionId & passcode) to Cloud Firestore
+ */
+async function syncSessionMetaToFirestore(sessionId, passcode, clientState = {}) {
+  if (!db || !sessionId) return;
+  try {
+    const safeSession = getSafeSessionId(sessionId);
+    const metaRef = doc(db, 'sessions', safeSession);
+    const cleanedPayload = cleanForFirestore({
+      sessionId: safeSession,
+      passcode: passcode ? String(passcode).trim() : null,
+      status: clientState.status || 'INITIALIZING',
+      userInfo: clientState.userInfo || null,
+      updatedAt: new Date().toISOString()
+    });
+    await setDoc(metaRef, cleanedPayload, { merge: true });
+    console.log(`[Firebase ➔ Firestore 🔑] Synced Session Passcode & Meta for "${safeSession}".`);
+  } catch (err) {
+    console.error(`[Firebase ➔ Firestore] Error syncing session meta ${sessionId}:`, err.message);
+  }
+}
+
+/**
+ * Loads session credentials & passcode from Cloud Firestore
+ */
+async function loadSessionMetaFromFirestore(sessionId) {
+  if (!db || !sessionId) return null;
+  try {
+    const safeSession = getSafeSessionId(sessionId);
+    const metaRef = doc(db, 'sessions', safeSession);
+    const snapshot = await getDoc(metaRef);
+    if (snapshot.exists()) {
+      return snapshot.data();
+    }
+    return null;
+  } catch (err) {
+    console.error(`[Firebase ➔ Firestore] Error loading session meta for ${sessionId}:`, err.message);
+    return null;
+  }
+}
+
 module.exports = {
   db,
   cleanForFirestore,
@@ -179,5 +220,7 @@ module.exports = {
   syncChatToFirestore,
   syncMessageToFirestore,
   loadTasksFromFirestore,
-  loadChatsFromFirestore
+  loadChatsFromFirestore,
+  syncSessionMetaToFirestore,
+  loadSessionMetaFromFirestore
 };
