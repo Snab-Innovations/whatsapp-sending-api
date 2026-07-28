@@ -56,20 +56,20 @@ export default function PasscodeLockModal({ sessionId, onUnlocked }) {
   return (
     <div className="fixed inset-0 z-50 bg-slate-50 overflow-y-auto flex flex-col justify-between select-none font-['Plus_Jakarta_Sans',sans-serif]">
       
-      {/* Sleek Top Header */}
-      <div className="w-full bg-white border-b border-slate-200/80 py-4 px-6 flex items-center justify-between relative overflow-hidden shadow-2xs">
+      {/* Fixed Executive Top Header (Never Shrinks) */}
+      <div className="w-full h-16 sm:h-20 shrink-0 bg-white/95 backdrop-blur-md border-b border-slate-200/80 px-4 sm:px-8 flex items-center justify-between relative z-30 shadow-xs">
         <div className="flex items-center gap-3 relative z-10">
-          <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-[#0095f6] via-purple-600 to-pink-500 text-white flex items-center justify-center shadow-md shadow-blue-500/20">
-            <Bot className="w-6 h-6" />
+          <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-gradient-to-tr from-[#0095f6] via-purple-600 to-pink-500 text-white flex items-center justify-center shadow-md shadow-blue-500/20 shrink-0">
+            <Bot className="w-6 h-6 sm:w-6 sm:h-6" />
           </div>
-          <div>
-            <h1 className="text-base sm:text-lg font-black text-slate-900 tracking-tight flex items-center gap-2">
+          <div className="min-w-0">
+            <h1 className="text-base sm:text-lg font-black text-slate-900 tracking-tight flex items-center gap-2 truncate">
               <span>WhatsApp AI Hub</span>
-              <span className="text-[10px] uppercase font-mono px-2.5 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-200 font-extrabold flex items-center gap-1">
+              <span className="text-[10px] uppercase font-mono px-2.5 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-200 font-extrabold flex items-center gap-1 shrink-0">
                 <Sparkles className="w-3 h-3 text-purple-600" /> Protected Session
               </span>
             </h1>
-            <p className="text-[11px] text-slate-500 font-medium hidden sm:block">Automated Task Extraction & Direct Message Manager</p>
+            <p className="text-[11px] text-slate-500 font-medium hidden sm:block truncate">Automated Task Extraction & Direct Message Manager</p>
           </div>
         </div>
 
@@ -209,7 +209,7 @@ export default function PasscodeLockModal({ sessionId, onUnlocked }) {
       </div>
 
       {/* Footer Branding with SNAB Innovations Link */}
-      <div className="w-full py-4 px-6 border-t border-slate-200/80 bg-white text-center text-xs text-slate-500 font-medium relative z-10 flex flex-wrap items-center justify-center gap-3">
+      <div className="w-full shrink-0 py-4 px-6 border-t border-slate-200/80 bg-white text-center text-xs text-slate-500 font-medium relative z-10 flex flex-wrap items-center justify-center gap-3">
         <span>Powered by <strong>WhatsApp AI Task Hub</strong></span>
         <span>•</span>
         <span>
