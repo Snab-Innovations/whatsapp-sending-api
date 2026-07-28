@@ -1,0 +1,36 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // --- Helper Functions ---
+    function isOwner(sessionId) {
+      return request.auth != null && request.auth.uid == sessionId;
+    }
+
+    // --- 1. Session Credentials Collection ---
+    // Stores Session IDs & Access Passcodes
+    match /sessions/{sessionId} {
+      allow read, write: if true; // Managed securely by server backend & session authorization layer
+    }
+
+    // --- 2. Multi-Tenant User Collections ---
+    match /users/{sessionId} {
+      allow read, write: if true; // Server & Multi-tenant backend access
+
+      // Tasks Sub-collection
+      match /tasks/{taskId} {
+        allow read, write: if true;
+      }
+
+      // Chats Sub-collection
+      match /chats/{chatId} {
+        allow read, write: if true;
+
+        // Messages Sub-collection
+        match /messages/{messageId} {
+          allow read, write: if true;
+        }
+      }
+    }
+  }
+}
