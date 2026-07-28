@@ -4,8 +4,8 @@ import { getOrCreateSessionId, getSessionPasscode } from '../utils/session';
 const API_BASE = import.meta.env.DEV ? (import.meta.env.VITE_SERVER_URL || '').replace(/\/$/, '') : '';
 
 function getHeaders(customHeaders = {}) {
-  const sessionId = getOrCreateSessionId();
-  const passcode = getSessionPasscode();
+  const sessionId = getOrCreateSessionId() || 'default';
+  const passcode = getSessionPasscode() || '';
   return {
     'Content-Type': 'application/json',
     'x-session-id': sessionId,

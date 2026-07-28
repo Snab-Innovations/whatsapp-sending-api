@@ -690,27 +690,34 @@ function restoreExistingSessions() {
 }
 
 // Middleware: attach user's session instance to every request
-app.use((req, res, next) => {
+app.use(async (req, res, next) => {
   if (req.path === '/ping') return next();
 
-  const rawId = req.headers['x-session-id'] || req.query.sessionId;
-  if (!rawId || typeof rawId !== 'string' || !rawId.trim()) {
-    return res.status(400).json({
-      error: 'MISSING_SESSION_ID',
-      message: 'x-session-id header is required. Please provide a valid session ID.'
-    });
+  const rawId = req.headers['x-session-id'] || req.query.sessionId || (req.body && req.body.sessionId) || 'default';
+  const cleanId = String(rawId).trim() || 'default';
+
+  const session = getOrCreateSession(cleanId);
+  const clientPasscode = req.headers['x-session-passcode'] || req.query.passcode;
+  const clientPassStr = clientPasscode && typeof clientPasscode === 'string' ? clientPasscode.trim() : '';
+
+  // Check Firestore if session is fresh OR if memory passcode doesn't match clientPasscode
+  if (session.isFresh || (clientPassStr && clientPassStr.length >= 4 && String(session.passcode).trim() !== clientPassStr)) {
+    try {
+      const meta = await loadSessionMetaFromFirestore(session.sessionId);
+      if (meta && meta.passcode) {
+        session.passcode = String(meta.passcode).trim();
+        delete session.isFresh;
+        saveSessionStoreToDisk(session);
+      }
+    } catch (e) {}
   }
 
-  const session = getOrCreateSession(rawId.trim());
-
-  // Binds client passcode if session is fresh
-  const clientPasscode = req.headers['x-session-passcode'] || req.query.passcode;
-  if (clientPasscode && typeof clientPasscode === 'string' && clientPasscode.trim().length >= 4) {
-    if (session.isFresh) {
-      session.passcode = clientPasscode.trim();
-      delete session.isFresh;
-      saveSessionStoreToDisk(session);
-    }
+  // Binds client passcode ONLY IF session is genuinely fresh (brand new creation)
+  if (clientPassStr && clientPassStr.length >= 4 && session.isFresh) {
+    session.passcode = clientPassStr;
+    delete session.isFresh;
+    saveSessionStoreToDisk(session);
+    syncSessionMetaToFirestore(session.sessionId, session.passcode, session.clientState).catch(() => null);
   }
 
   req.sessionInstance = session;
