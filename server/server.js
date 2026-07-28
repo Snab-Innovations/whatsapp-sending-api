@@ -14,6 +14,7 @@ const {
   syncMessageToFirestore,
   loadTasksFromFirestore,
   loadChatsFromFirestore,
+  loadMessagesFromFirestore,
   syncSessionMetaToFirestore,
   loadSessionMetaFromFirestore
 } = require('./services/firebase');
@@ -208,12 +209,16 @@ async function loadSessionFromFirestore(session) {
 
     const firestoreChats = await loadChatsFromFirestore(session.sessionId);
     if (firestoreChats && firestoreChats.length > 0) {
-      firestoreChats.forEach(c => {
+      for (const c of firestoreChats) {
         if (c && c.id) {
           const existing = session.chatsMap.get(c.id) || {};
           session.chatsMap.set(c.id, { ...existing, ...c });
+          const chatMsgs = await loadMessagesFromFirestore(session.sessionId, c.id);
+          if (chatMsgs && chatMsgs.length > 0) {
+            session.messagesMap.set(c.id, chatMsgs);
+          }
         }
-      });
+      }
     }
     saveSessionStoreToDisk(session);
   } catch (err) {
@@ -890,6 +895,8 @@ app.post('/api/messages/send', verifyPasscodeAuth, async (req, res) => {
     existingChat.lastMessage = { body: message, timestamp, fromMe: true, type: 'chat' };
     session.chatsMap.set(remoteJid, existingChat);
     saveSessionStoreToDisk(session);
+    syncMessageToFirestore(remoteJid, formattedMsg, session.sessionId).catch(() => null);
+    syncChatToFirestore(existingChat, session.sessionId).catch(() => null);
 
     res.json({ success: true, message: formattedMsg });
   } catch (err) {

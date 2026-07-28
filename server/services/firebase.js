@@ -212,6 +212,27 @@ async function loadSessionMetaFromFirestore(sessionId) {
   }
 }
 
+/**
+ * Loads stored message history for a chat thread from Cloud Firestore
+ */
+async function loadMessagesFromFirestore(sessionId = 'default', chatId) {
+  if (!db || !chatId) return [];
+  try {
+    const safeSession = getSafeSessionId(sessionId);
+    const safeChatId = String(chatId).replace(/\//g, '_');
+    const msgsRef = collection(db, 'users', safeSession, 'chats', safeChatId, 'messages');
+    const snapshot = await getDocs(msgsRef);
+    const messages = [];
+    snapshot.forEach(docSnap => {
+      messages.push(docSnap.data());
+    });
+    return messages.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+  } catch (err) {
+    console.error('[Firebase ➔ Firestore] Error loading messages from Firestore:', err.message);
+    return [];
+  }
+}
+
 module.exports = {
   db,
   cleanForFirestore,
@@ -221,6 +242,7 @@ module.exports = {
   syncMessageToFirestore,
   loadTasksFromFirestore,
   loadChatsFromFirestore,
+  loadMessagesFromFirestore,
   syncSessionMetaToFirestore,
   loadSessionMetaFromFirestore
 };
