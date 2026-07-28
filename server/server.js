@@ -999,6 +999,48 @@ app.post('/api/ai/analyze-all', verifyPasscodeAuth, async (req, res) => {
   res.json({ success: true, message: 'Bulk historical analysis triggered in background.' });
 });
 
+app.post('/api/ai/replies', verifyPasscodeAuth, async (req, res) => {
+  const session = req.sessionInstance;
+  const { chatId } = req.body || {};
+  if (!chatId) {
+    return res.status(400).json({ error: 'chatId parameter is required' });
+  }
+
+  try {
+    const remoteJid = jidNormalizedUser(decodeURIComponent(chatId));
+    const msgs = session.messagesMap.get(remoteJid) || [];
+    const chatObj = session.chatsMap.get(remoteJid);
+    const contactName = chatObj ? chatObj.name : 'Contact';
+
+    const suggestions = await generateSmartReplies(msgs, contactName);
+    res.json({ success: true, chatId: remoteJid, suggestions });
+  } catch (err) {
+    console.error(`[AI Replies ${session.sessionId}] Error:`, err.message);
+    res.status(500).json({ error: 'Failed to generate AI replies' });
+  }
+});
+
+app.get('/api/ai/analytics', verifyPasscodeAuth, (req, res) => {
+  const session = req.sessionInstance;
+  const tasks = Array.from(session.tasksMap.values());
+  const chats = Array.from(session.chatsMap.values());
+
+  const totalTasks = tasks.length;
+  const completedTasks = tasks.filter(t => t.status === 'COMPLETED').length;
+  const pendingTasks = tasks.filter(t => t.status === 'TO_DO' || t.status === 'IN_PROGRESS').length;
+  const highPriorityTasks = tasks.filter(t => t.priority === 'HIGH').length;
+
+  res.json({
+    success: true,
+    totalTasks,
+    completedTasks,
+    pendingTasks,
+    highPriorityTasks,
+    totalChats: chats.length,
+    tasks
+  });
+});
+
 // --- Render Keep-Alive Auto-Ping (Every 10 minutes) ---
 const KEEP_ALIVE_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes
 
