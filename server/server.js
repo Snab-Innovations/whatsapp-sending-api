@@ -63,6 +63,10 @@ function loadStoreFromDisk() {
         const seenKeys = new Map();
         data.tasks.forEach(t => {
           if (!t || !t.id) return;
+          const lowerMsg = (t.originalMessage || t.title || '').toLowerCase().trim();
+          const isCasualGreeting = /^(good\s*(morning|afternoon|evening|night)|hi|hello|hey|gm|gn|hie|heyy+|how\s*are\s*you|thanks|thank\s*you|ok|okay|k|cool|great|nice|bye|take\s*care|tc|welcome)[!.,\s]*$/i.test(lowerMsg);
+          if (isCasualGreeting) return;
+
           const dedupKey = `${t.chatId || ''}::${t.originalMessage || t.title}`;
           if (!seenKeys.has(dedupKey)) {
             seenKeys.set(dedupKey, t.id);

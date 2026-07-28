@@ -32,26 +32,28 @@ async function analyzeMessage(text, senderName = 'Contact') {
 You are an expert AI executive productivity assistant analyzing a WhatsApp message.
 Analyze the message and extract task details, priority, due date, category, sentiment, and an explicit AI Verdict / Detailed Decision.
 
-CRITICAL CLASSIFICATION & PRIORITY RULES:
-1. ANY message mentioning an INTERVIEW, JOB OPPORTUNITY, INTERVIEW LOCATION/VENUE (e.g. NEC, Nashik, SNAB Innovation), MEETING, APPOINTMENT, DEADLINE, PAYMENT, or URGENT ASSIGNMENT MUST BE CLASSIFIED AS:
+CRITICAL TASK EXTRACTION & CASUAL GREETINGS RULES:
+1. MESSAGES CONTAINING ONLY GREETINGS, PLEASANTRIES, OR CASUAL CONVERSATION (e.g. 'good morning', 'good evening', 'hi', 'hello', 'how are you', 'thank you', 'okay', 'bye') ARE NOT TASKS!
+   - You MUST set "hasTask": false, "taskTitle": null, and "verdict": null for all casual greetings!
+2. ANY message mentioning an INTERVIEW, JOB OPPORTUNITY, INTERVIEW LOCATION/VENUE (e.g. NEC, Nashik, SNAB Innovation), MEETING, APPOINTMENT, DEADLINE, PAYMENT, or URGENT ASSIGNMENT MUST BE CLASSIFIED AS:
+   - "hasTask": true
    - "priority": "HIGH"
    - "category": "Meeting" or "Urgent" or "Work"
-2. Do NOT classify job interviews, scheduled meetings, or time-sensitive appointments as "LOW" priority or "General" category!
-3. Provide a clear, actionable "verdict" summarizing the executive decision, date/time, venue, and assigned next steps.
+3. Do NOT classify job interviews, scheduled meetings, or time-sensitive appointments as "LOW" priority or "General" category!
 
 Sender: "${senderName}"
 Message: "${text}"
 
 Respond ONLY with a valid JSON object matching this exact schema (no markdown fences, no extra text):
 {
-  "hasTask": true,
-  "taskTitle": "Short, clear actionable title (e.g. 'Attend Job Interview at SNAB Innovation')",
+  "hasTask": true_or_false,
+  "taskTitle": "Short actionable title if hasTask is true, else null",
   "priority": "HIGH" | "MEDIUM" | "LOW",
   "category": "Meeting" | "Urgent" | "Work" | "Follow-up" | "Payment" | "General",
-  "dueDate": "Extracted date and time (e.g. '29 Jul at 10:00 AM' or 'Tomorrow')",
+  "dueDate": "Extracted date and time if specified, else null",
   "sentiment": "Urgent" | "Important" | "Positive" | "Neutral",
   "summary": "1 concise sentence summarizing key point",
-  "verdict": "Detailed executive AI decision & verdict explaining event time, location, assigned action, and preparation requirements."
+  "verdict": "Detailed executive decision & verdict if hasTask is true, else null"
 }`;
 
       let result;
@@ -123,12 +125,21 @@ Respond ONLY with a valid JSON array of 3 strings:
 }
 
 /**
- * Bulk analyzes all stored messages across all chats with strict task deduplication
+ * Bulk analyzes all stored messages across all chats with strict task deduplication & greeting filters
  */
 async function batchAnalyzeAllMessages(chatsMap, messagesMap, tasksMap) {
   let analyzedCount = 0;
   let newTasksExtracted = 0;
   const chatSummaries = [];
+
+  // Purge any existing casual greeting tasks from tasksMap
+  for (const [id, t] of tasksMap.entries()) {
+    const lowerMsg = (t.originalMessage || t.title || '').toLowerCase().trim();
+    const isCasualGreeting = /^(good\s*(morning|afternoon|evening|night)|hi|hello|hey|gm|gn|hie|heyy+|how\s*are\s*you|thanks|thank\s*you|ok|okay|k|cool|great|nice|bye|take\s*care|tc|welcome)[!.,\s]*$/i.test(lowerMsg);
+    if (isCasualGreeting) {
+      tasksMap.delete(id);
+    }
+  }
 
   for (const [chatId, messages] of messagesMap.entries()) {
     const chatObj = chatsMap.get(chatId);
@@ -142,8 +153,21 @@ async function batchAnalyzeAllMessages(chatsMap, messagesMap, tasksMap) {
       if (!msg.body || msg.body.trim().length === 0) continue;
       analyzedCount++;
 
-      // Force re-analysis if message was previously classified as LOW or General but contains important keywords like interview/meeting/schedule
-      const textLower = msg.body.toLowerCase();
+      const textLower = msg.body.toLowerCase().trim();
+      const isCasualGreeting = /^(good\s*(morning|afternoon|evening|night)|hi|hello|hey|gm|gn|hie|heyy+|how\s*are\s*you|thanks|thank\s*you|ok|okay|k|cool|great|nice|bye|take\s*care|tc|welcome)[!.,\s]*$/i.test(textLower);
+
+      if (isCasualGreeting) {
+        msg.aiAnalysis = {
+          hasTask: false,
+          taskTitle: null,
+          priority: 'LOW',
+          category: 'General',
+          summary: 'Conversational greeting',
+          verdict: null
+        };
+        continue;
+      }
+
       const isImportantEvent = textLower.includes('interview') || textLower.includes('snab') || textLower.includes('schedule') || textLower.includes('meeting') || textLower.includes('urgent') || textLower.includes('appointment');
 
       if (!msg.aiAnalysis || (isImportantEvent && msg.aiAnalysis.priority === 'LOW')) {
@@ -228,10 +252,26 @@ async function batchAnalyzeAllMessages(chatsMap, messagesMap, tasksMap) {
 }
 
 /**
- * Enhanced Rule-based heuristic analyzer fallback for accurate interview, schedule, meeting, and deadline detection
+ * Enhanced Rule-based heuristic analyzer fallback ignoring casual greetings
  */
 function fallbackAnalyze(text) {
-  const lower = text.toLowerCase();
+  const lower = text.toLowerCase().trim();
+
+  // 1. Casual Greetings & Pleasantries Filter
+  const isCasualGreeting = /^(good\s*(morning|afternoon|evening|night)|hi|hello|hey|gm|gn|hie|heyy+|how\s*are\s*you|thanks|thank\s*you|ok|okay|k|cool|great|nice|bye|take\s*care|tc|welcome)[!.,\s]*$/i.test(lower);
+  
+  if (isCasualGreeting) {
+    return {
+      hasTask: false,
+      taskTitle: null,
+      priority: 'LOW',
+      category: 'General',
+      dueDate: null,
+      sentiment: 'Positive',
+      summary: 'Conversational greeting',
+      verdict: null
+    };
+  }
 
   const isInterview = lower.includes('interview') || lower.includes('snab') || lower.includes('candidate') || lower.includes('appointment') || lower.includes('hiring') || lower.includes('job') || lower.includes('shortlisted');
   const isUrgent = lower.includes('urgent') || lower.includes('asap') || lower.includes('immediately') || lower.includes('critical') || lower.includes('imp ') || lower.includes('important');
@@ -245,6 +285,19 @@ function fallbackAnalyze(text) {
                         lower.includes('today') || lower.includes('tomorrow');
 
   const hasTask = isInterview || isUrgent || isMeeting || isWork || isPayment || isFollowUp || hasTimeOrDate || lower.includes('please') || lower.includes('by ');
+
+  if (!hasTask) {
+    return {
+      hasTask: false,
+      taskTitle: null,
+      priority: 'LOW',
+      category: 'General',
+      dueDate: null,
+      sentiment: 'Neutral',
+      summary: text.length > 50 ? text.substring(0, 47) + '...' : text,
+      verdict: null
+    };
+  }
 
   // Priority classification logic: Interviews, Appointments, Deadlines & Urgent items are HIGH priority
   let priority = 'LOW';
