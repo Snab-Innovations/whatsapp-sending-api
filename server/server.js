@@ -60,8 +60,19 @@ function loadStoreFromDisk() {
         });
       }
       if (Array.isArray(data.tasks)) {
+        const seenKeys = new Map();
         data.tasks.forEach(t => {
-          if (t && t.id) tasksMap.set(t.id, t);
+          if (!t || !t.id) return;
+          const dedupKey = `${t.chatId || ''}::${t.originalMessage || t.title}`;
+          if (!seenKeys.has(dedupKey)) {
+            seenKeys.set(dedupKey, t.id);
+            tasksMap.set(t.id, t);
+          } else {
+            const existingId = seenKeys.get(dedupKey);
+            const existing = tasksMap.get(existingId);
+            if (t.priority === 'HIGH') existing.priority = 'HIGH';
+            if (t.verdict) existing.verdict = t.verdict;
+          }
         });
       }
       console.log(`[Store 💾] Loaded persistent state from disk: ${chatsMap.size} chats, ${messagesMap.size} message threads, ${tasksMap.size} tasks.`);
@@ -418,24 +429,47 @@ async function initBaileysSocket() {
         formattedMsg.aiAnalysis = aiAnalysis;
 
         if (aiAnalysis.hasTask) {
-          const taskId = `task-${msgId}`;
-          const taskObj = {
-            id: taskId,
-            title: aiAnalysis.taskTitle || body,
-            chatId: remoteJid,
-            chatName,
-            originalMessage: body,
-            priority: aiAnalysis.priority || 'MEDIUM',
-            category: aiAnalysis.category || 'General',
-            status: 'TO_DO',
-            dueDate: aiAnalysis.dueDate || 'Upcoming',
-            sentiment: aiAnalysis.sentiment || 'Neutral',
-            summary: aiAnalysis.summary || '',
-            verdict: aiAnalysis.verdict || aiAnalysis.summary || body,
-            createdAt: new Date().toISOString()
-          };
+          const targetTaskId = `task-${msgId}`;
+          let existingId = null;
+          if (tasksMap.has(targetTaskId)) {
+            existingId = targetTaskId;
+          } else {
+            for (const [id, t] of tasksMap.entries()) {
+              if (t.chatId === remoteJid && t.originalMessage === body) {
+                existingId = id;
+                break;
+              }
+            }
+          }
 
-          tasksMap.set(taskId, taskObj);
+          let taskObj;
+          if (existingId) {
+            taskObj = tasksMap.get(existingId);
+            taskObj.priority = aiAnalysis.priority || taskObj.priority;
+            taskObj.category = aiAnalysis.category || taskObj.category;
+            taskObj.title = aiAnalysis.taskTitle || taskObj.title;
+            taskObj.dueDate = aiAnalysis.dueDate || taskObj.dueDate;
+            taskObj.verdict = aiAnalysis.verdict || aiAnalysis.summary || taskObj.verdict;
+            tasksMap.set(existingId, taskObj);
+          } else {
+            taskObj = {
+              id: targetTaskId,
+              title: aiAnalysis.taskTitle || body,
+              chatId: remoteJid,
+              chatName,
+              originalMessage: body,
+              priority: aiAnalysis.priority || 'MEDIUM',
+              category: aiAnalysis.category || 'General',
+              status: 'TO_DO',
+              dueDate: aiAnalysis.dueDate || 'Upcoming',
+              sentiment: aiAnalysis.sentiment || 'Neutral',
+              summary: aiAnalysis.summary || '',
+              verdict: aiAnalysis.verdict || aiAnalysis.summary || body,
+              createdAt: new Date().toISOString()
+            };
+            tasksMap.set(targetTaskId, taskObj);
+          }
+
           console.log(`[Gemini AI 🎯] Extracted Actionable Task: "${taskObj.title}" (${taskObj.priority})`);
 
           // Broadcast NEW_TASK event via SSE

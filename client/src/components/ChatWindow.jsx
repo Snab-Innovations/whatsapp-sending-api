@@ -192,13 +192,13 @@ export default function ChatWindow({ chat, messages, loadingMessages, onSendMess
             return (
               <div
                 key={msg.id}
-                className={`flex flex-col ${fromMe ? 'items-end' : 'items-start'}`}
+                className={`w-full flex ${fromMe ? 'justify-end' : 'justify-start'}`}
               >
                 <div
                   className={`max-w-md sm:max-w-lg p-3.5 rounded-2xl shadow-xs transition-all relative ${
                     fromMe
-                      ? 'bg-[#0095f6] text-white rounded-tr-xs'
-                      : 'bg-white border border-slate-200 text-slate-900 rounded-tl-xs'
+                      ? 'bg-[#0095f6] text-white rounded-tr-xs ml-auto'
+                      : 'bg-white border border-slate-200 text-slate-900 rounded-tl-xs mr-auto'
                   }`}
                 >
                   {/* Sender Name in Group */}

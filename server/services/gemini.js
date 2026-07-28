@@ -123,7 +123,7 @@ Respond ONLY with a valid JSON array of 3 strings:
 }
 
 /**
- * Bulk analyzes all stored messages across all chats
+ * Bulk analyzes all stored messages across all chats with strict task deduplication
  */
 async function batchAnalyzeAllMessages(chatsMap, messagesMap, tasksMap) {
   let analyzedCount = 0;
@@ -151,27 +151,57 @@ async function batchAnalyzeAllMessages(chatsMap, messagesMap, tasksMap) {
         if (analysis) {
           msg.aiAnalysis = analysis;
           if (analysis.hasTask) {
-            const taskId = `task-batch-${msg.id || Date.now()}`;
-            const taskObj = {
-              id: taskId,
-              title: analysis.taskTitle || msg.body,
-              chatId,
-              chatName,
-              originalMessage: msg.body,
-              priority: analysis.priority || (isImportantEvent ? 'HIGH' : 'MEDIUM'),
-              category: analysis.category || (isImportantEvent ? 'Meeting' : 'General'),
-              status: 'TO_DO',
-              dueDate: analysis.dueDate || 'Upcoming',
-              sentiment: analysis.sentiment || 'Important',
-              summary: analysis.summary || '',
-              verdict: analysis.verdict || analysis.summary || msg.body,
-              createdAt: new Date().toISOString()
-            };
+            // Strict task deduplication key
+            const targetTaskId = msg.id ? `task-${msg.id}` : `task-${chatId}-${msg.body.trim().substring(0, 30)}`;
 
-            tasksMap.set(taskId, taskObj);
-            newTasksExtracted++;
-            chatTaskCount++;
-            chatTasks.push(taskObj);
+            // Check if task already exists by ID or by matching originalMessage in same chat
+            let existingId = null;
+            if (tasksMap.has(targetTaskId)) {
+              existingId = targetTaskId;
+            } else {
+              for (const [id, t] of tasksMap.entries()) {
+                if (t.chatId === chatId && t.originalMessage === msg.body) {
+                  existingId = id;
+                  break;
+                }
+              }
+            }
+
+            if (existingId) {
+              // Update existing task instead of creating a duplicate
+              const existing = tasksMap.get(existingId);
+              existing.priority = analysis.priority || (isImportantEvent ? 'HIGH' : existing.priority);
+              existing.category = analysis.category || (isImportantEvent ? 'Meeting' : existing.category);
+              existing.title = analysis.taskTitle || existing.title;
+              existing.dueDate = analysis.dueDate || existing.dueDate;
+              existing.verdict = analysis.verdict || analysis.summary || existing.verdict;
+              existing.summary = analysis.summary || existing.summary;
+              tasksMap.set(existingId, existing);
+              chatTaskCount++;
+              chatTasks.push(existing);
+            } else {
+              // Create new task
+              const taskObj = {
+                id: targetTaskId,
+                title: analysis.taskTitle || msg.body,
+                chatId,
+                chatName,
+                originalMessage: msg.body,
+                priority: analysis.priority || (isImportantEvent ? 'HIGH' : 'MEDIUM'),
+                category: analysis.category || (isImportantEvent ? 'Meeting' : 'General'),
+                status: 'TO_DO',
+                dueDate: analysis.dueDate || 'Upcoming',
+                sentiment: analysis.sentiment || 'Important',
+                summary: analysis.summary || '',
+                verdict: analysis.verdict || analysis.summary || msg.body,
+                createdAt: new Date().toISOString()
+              };
+
+              tasksMap.set(targetTaskId, taskObj);
+              newTasksExtracted++;
+              chatTaskCount++;
+              chatTasks.push(taskObj);
+            }
           }
         }
       } else if (msg.aiAnalysis.hasTask) {
