@@ -8,6 +8,8 @@ export function getOrCreateSessionId() {
   if (!sessionId) {
     sessionId = `user_${Math.random().toString(36).substring(2, 10)}_${Date.now().toString(36)}`;
     localStorage.setItem(SESSION_KEY, sessionId);
+    const initialPasscode = Math.floor(100000 + Math.random() * 900000).toString();
+    setSessionPasscode(initialPasscode);
   }
   return sessionId;
 }
@@ -43,6 +45,7 @@ export function switchSession(newSessionId, passcode = '') {
 export function resetSessionId() {
   const newSessionId = `user_${Math.random().toString(36).substring(2, 10)}_${Date.now().toString(36)}`;
   localStorage.setItem(SESSION_KEY, newSessionId);
-  clearSessionPasscode();
+  const initialPasscode = Math.floor(100000 + Math.random() * 900000).toString();
+  setSessionPasscode(initialPasscode);
   return newSessionId;
 }

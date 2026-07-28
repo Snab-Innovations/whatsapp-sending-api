@@ -108,6 +108,7 @@ function getOrCreateSession(rawSessionId) {
     authPath,
     storePath,
     passcode: generatePasscode(),
+    isFresh: true,
     sock: null,
     clientState: {
       status: 'INITIALIZING', // INITIALIZING, QR_READY, AUTHENTICATED, READY, DISCONNECTED, AUTH_FAILURE
@@ -142,6 +143,7 @@ function loadSessionStoreFromDisk(session) {
       const data = JSON.parse(raw);
       if (data.passcode) {
         session.passcode = String(data.passcode).trim();
+        delete session.isFresh;
       } else {
         saveSessionStoreToDisk(session);
       }
@@ -673,15 +675,38 @@ function restoreExistingSessions() {
 
 // Middleware: attach user's session instance to every request
 app.use((req, res, next) => {
-  const rawId = req.headers['x-session-id'] || req.query.sessionId || 'default';
-  req.sessionInstance = getOrCreateSession(rawId);
+  if (req.path === '/ping') return next();
+
+  const rawId = req.headers['x-session-id'] || req.query.sessionId;
+  if (!rawId || typeof rawId !== 'string' || !rawId.trim()) {
+    return res.status(400).json({
+      error: 'MISSING_SESSION_ID',
+      message: 'x-session-id header is required. Please provide a valid session ID.'
+    });
+  }
+
+  const session = getOrCreateSession(rawId.trim());
+
+  // Binds client passcode if session is fresh
+  const clientPasscode = req.headers['x-session-passcode'] || req.query.passcode;
+  if (clientPasscode && typeof clientPasscode === 'string' && clientPasscode.trim().length >= 4) {
+    if (session.isFresh) {
+      session.passcode = clientPasscode.trim();
+      delete session.isFresh;
+      saveSessionStoreToDisk(session);
+    }
+  }
+
+  req.sessionInstance = session;
   next();
 });
 
 // Middleware: Verify Session Passcode for protected endpoints
 function verifyPasscodeAuth(req, res, next) {
   const session = req.sessionInstance;
-  if (!session) return next();
+  if (!session) {
+    return res.status(400).json({ error: 'MISSING_SESSION_ID', message: 'Session required.' });
+  }
 
   const clientPasscode = req.headers['x-session-passcode'] || req.query.passcode;
   const isValid = Boolean(
@@ -695,7 +720,7 @@ function verifyPasscodeAuth(req, res, next) {
       error: 'PASSCODE_REQUIRED',
       requiresPasscode: true,
       sessionId: session.sessionId,
-      message: 'Access locked. Please enter your 6-digit session passcode.'
+      message: 'Access locked. Please enter your session passcode.'
     });
   }
   next();
@@ -711,13 +736,22 @@ app.get('/api/status', (req, res) => {
     String(clientPasscode).trim() === String(session.passcode).trim()
   );
 
+  if (!isUnlocked) {
+    return res.json({
+      status: session.clientState.status,
+      sessionId: session.sessionId,
+      hasPasscode: true,
+      isLocked: true,
+      qrCodeDataUrl: session.clientState.status === 'QR_READY' ? session.clientState.qrCodeDataUrl : null,
+      error: session.clientState.error || null
+    });
+  }
+
   res.json({
     ...session.clientState,
     sessionId: session.sessionId,
     hasPasscode: true,
-    isLocked: !isUnlocked,
-    // Reveal passcode during QR scanning / setup or if unlocked
-    passcode: (session.clientState.status === 'QR_READY' || session.clientState.status === 'INITIALIZING' || isUnlocked) ? session.passcode : null
+    isLocked: false
   });
 });
 
@@ -990,8 +1024,6 @@ function startKeepAliveSelfPing() {
 const serverInstance = app.listen(PORT, () => {
   console.log(`\n🚀 Multi-Tenant WhatsApp + Gemini AI Server listening on http://localhost:${PORT}`);
   restoreExistingSessions();
-  // Ensure default session is created if none exists
-  getOrCreateSession('default');
   // Start Keep-Alive Auto Ping
   startKeepAliveSelfPing();
 });
