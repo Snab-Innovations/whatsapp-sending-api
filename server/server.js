@@ -35,23 +35,16 @@ app.use(express.static(path.join(__dirname, 'public')));
 // Logger
 const logger = pino({ level: 'silent' });
 
-// Global client & connection state
-let sock = null;
-let clientState = {
-  status: 'INITIALIZING', // INITIALIZING, QR_READY, AUTHENTICATED, READY, DISCONNECTED, AUTH_FAILURE
-  qrCodeDataUrl: null,
-  userInfo: null,
-  lastUpdated: new Date().toISOString(),
-  error: null
-};
+// Ensure base data directory exists
+const DATA_DIR = path.join(__dirname, 'data');
+const SESSIONS_DIR = path.join(DATA_DIR, 'sessions');
+if (!fs.existsSync(SESSIONS_DIR)) {
+  fs.mkdirSync(SESSIONS_DIR, { recursive: true });
+}
 
-// In-memory data store for chats, messages, and AI tasks
-const chatsMap = new Map(); // jid -> chatObj
-const messagesMap = new Map(); // jid -> messageArray
-const tasksMap = new Map(); // taskId -> taskObj
-let sseClients = [];
-
-const STORE_PATH = path.join(__dirname, 'data', 'store.json');
+// Multi-Tenant Session Store Map
+// Map<sessionId, SessionInstance>
+const sessionsMap = new Map();
 
 /**
  * Helper to resolve clean, human-readable contact display names
@@ -78,155 +71,156 @@ function resolveDisplayName(id, name, pushName) {
   return name || id || 'WhatsApp Contact';
 }
 
-function loadStoreFromDisk() {
+function sanitizeSessionId(sessionId) {
+  if (!sessionId || typeof sessionId !== 'string') return 'default';
+  return sessionId.replace(/[^a-zA-Z0-9_-]/g, '_').substring(0, 64) || 'default';
+}
+
+/**
+ * Creates or retrieves a session instance for a given sessionId
+ */
+function getOrCreateSession(rawSessionId) {
+  const sessionId = sanitizeSessionId(rawSessionId);
+  if (sessionsMap.has(sessionId)) {
+    return sessionsMap.get(sessionId);
+  }
+
+  const sessionDir = path.join(SESSIONS_DIR, sessionId);
+  const authPath = path.join(sessionDir, 'baileys_auth_info');
+  const storePath = path.join(sessionDir, 'store.json');
+
+  if (!fs.existsSync(authPath)) {
+    fs.mkdirSync(authPath, { recursive: true });
+  }
+
+  const sessionInstance = {
+    sessionId,
+    sessionDir,
+    authPath,
+    storePath,
+    sock: null,
+    clientState: {
+      status: 'INITIALIZING', // INITIALIZING, QR_READY, AUTHENTICATED, READY, DISCONNECTED, AUTH_FAILURE
+      qrCodeDataUrl: null,
+      userInfo: null,
+      lastUpdated: new Date().toISOString(),
+      error: null
+    },
+    chatsMap: new Map(),
+    messagesMap: new Map(),
+    tasksMap: new Map(),
+    sseClients: new Set(),
+    isInitializing: false
+  };
+
+  sessionsMap.set(sessionId, sessionInstance);
+
+  // Load local store & Firestore store for this session
+  loadSessionStoreFromDisk(sessionInstance);
+  loadSessionFromFirestore(sessionInstance);
+
+  // Initialize WhatsApp Baileys Socket for this session
+  initBaileysSocketForSession(sessionInstance);
+
+  return sessionInstance;
+}
+
+function loadSessionStoreFromDisk(session) {
   try {
-    if (fs.existsSync(STORE_PATH)) {
-      const raw = fs.readFileSync(STORE_PATH, 'utf-8');
+    if (fs.existsSync(session.storePath)) {
+      const raw = fs.readFileSync(session.storePath, 'utf-8');
       const data = JSON.parse(raw);
       if (Array.isArray(data.chats)) {
         data.chats.forEach(c => {
           if (c && c.id) {
             c.name = resolveDisplayName(c.id, c.name, null);
-            chatsMap.set(c.id, c);
+            session.chatsMap.set(c.id, c);
           }
         });
       }
       if (data.messages && typeof data.messages === 'object') {
         Object.entries(data.messages).forEach(([jid, msgs]) => {
-          if (Array.isArray(msgs)) messagesMap.set(jid, msgs);
+          if (Array.isArray(msgs)) session.messagesMap.set(jid, msgs);
         });
       }
       if (Array.isArray(data.tasks)) {
-        const seenKeys = new Map();
         data.tasks.forEach(t => {
-          if (!t || !t.id) return;
-          const lowerMsg = (t.originalMessage || t.title || '').toLowerCase().trim();
-          const isCasualGreeting = /^(good\s*(morning|afternoon|evening|night)|hi+|hello+|hey+|gm|gn|hie|heyy+|how\s*are\s*you|thanks|thank\s*you|ok|okay|k|cool|great|nice|bye|take\s*care|tc|welcome|kay\s*(krte|karta|krto|chalel|karte|chalalay)|kya\s*(kar\s*rahe\s*ho|kr\s*rhe\s*ho|krte|kar\s*raha\s*h|bolte|chal\s*raha\s*hai)|whats\s*up|what's\s*up|sup|wbu|wby|hru|i\s*love\s*you)[!.,\s\u1f600-\u1f64f\u1f300-\u1f5ff\u1f680-\u1f6ff\u2600-\u26ff]*$/i.test(lowerMsg);
-          if (isCasualGreeting) return;
-
-          const dedupKey = `${t.chatId || ''}::${t.originalMessage || t.title}`;
-          if (!seenKeys.has(dedupKey)) {
-            seenKeys.set(dedupKey, t.id);
-            tasksMap.set(t.id, t);
-          } else {
-            const existingId = seenKeys.get(dedupKey);
-            const existing = tasksMap.get(existingId);
-            if (t.priority === 'HIGH') existing.priority = 'HIGH';
-            if (t.verdict) existing.verdict = t.verdict;
-          }
+          if (t && t.id) session.tasksMap.set(t.id, t);
         });
       }
-      console.log(`[Store 💾] Loaded persistent state from disk: ${chatsMap.size} chats, ${messagesMap.size} message threads, ${tasksMap.size} tasks.`);
+      console.log(`[Session 💾 ${session.sessionId}] Loaded persistent state from disk: ${session.chatsMap.size} chats, ${session.messagesMap.size} message threads, ${session.tasksMap.size} tasks.`);
     }
-
-    // Load & sync remote tasks from Cloud Firestore
-    loadTasksFromFirestore().then(remoteTasks => {
-      if (Array.isArray(remoteTasks)) {
-        remoteTasks.forEach(t => {
-          if (t && t.id && !tasksMap.has(t.id)) {
-            tasksMap.set(t.id, t);
-          }
-        });
-      }
-    }).catch(() => null);
   } catch (err) {
-    console.error('[Store 💾] Error loading store from disk:', err.message);
+    console.error(`[Session ${session.sessionId}] Error reading store.json:`, err.message);
   }
 }
 
-let saveDebounceTimer = null;
-function saveStoreToDisk() {
-  if (saveDebounceTimer) clearTimeout(saveDebounceTimer);
-  saveDebounceTimer = setTimeout(() => {
-    try {
-      const dataDir = path.join(__dirname, 'data');
-      if (!fs.existsSync(dataDir)) {
-        fs.mkdirSync(dataDir, { recursive: true });
-      }
-      const chats = Array.from(chatsMap.values());
-      const messagesObj = {};
-      for (const [jid, msgs] of messagesMap.entries()) {
-        messagesObj[jid] = msgs.slice(-300);
-      }
-      const tasks = Array.from(tasksMap.values());
-      fs.writeFileSync(STORE_PATH, JSON.stringify({ chats, messages: messagesObj, tasks }, null, 2));
-
-      // Sync tasks & chats to Cloud Firestore
-      tasks.forEach(t => syncTaskToFirestore(t).catch(() => null));
-      chats.forEach(c => syncChatToFirestore(c).catch(() => null));
-    } catch (err) {
-      console.error('[Store 💾] Error saving store to disk:', err.message);
-    }
-  }, 500);
-}
-
-// Load persisted state immediately on server boot
-loadStoreFromDisk();
-
-async function runBackgroundHistoricalAnalysis() {
-  console.log('[Background AI 🤖] Running background historical message & task analysis across all chats...');
+function saveSessionStoreToDisk(session) {
   try {
-    const report = await batchAnalyzeAllMessages(chatsMap, messagesMap, tasksMap);
-    saveStoreToDisk();
-    console.log(`[Background AI 🤖] Analysis complete! Extracted ${report.newTasksExtracted} new tasks. Total active tasks: ${tasksMap.size}`);
-
-    const tasksArray = Array.from(tasksMap.values());
-    const ssePayload = `data: ${JSON.stringify({
-      eventType: 'BULK_ANALYSIS_COMPLETE',
-      tasksCount: tasksArray.length,
-      report
-    })}\n\n`;
-    sseClients.forEach(res => res.write(ssePayload));
+    const data = {
+      chats: Array.from(session.chatsMap.values()),
+      messages: Object.fromEntries(session.messagesMap),
+      tasks: Array.from(session.tasksMap.values())
+    };
+    fs.writeFileSync(session.storePath, JSON.stringify(data, null, 2), 'utf-8');
   } catch (err) {
-    console.error('[Background AI 🤖] Historical background analysis error:', err.message);
+    console.error(`[Session ${session.sessionId}] Error writing store.json:`, err.message);
   }
 }
 
-function broadcastState() {
-  clientState.lastUpdated = new Date().toISOString();
-  const payload = `data: ${JSON.stringify({ eventType: 'STATE_UPDATE', ...clientState })}\n\n`;
-  sseClients.forEach(res => res.write(payload));
+async function loadSessionFromFirestore(session) {
+  try {
+    const firestoreTasks = await loadTasksFromFirestore(session.sessionId);
+    if (firestoreTasks && firestoreTasks.length > 0) {
+      firestoreTasks.forEach(t => {
+        if (t && t.id) session.tasksMap.set(t.id, t);
+      });
+    }
+
+    const firestoreChats = await loadChatsFromFirestore(session.sessionId);
+    if (firestoreChats && firestoreChats.length > 0) {
+      firestoreChats.forEach(c => {
+        if (c && c.id) {
+          const existing = session.chatsMap.get(c.id) || {};
+          session.chatsMap.set(c.id, { ...existing, ...c });
+        }
+      });
+    }
+    saveSessionStoreToDisk(session);
+  } catch (err) {
+    console.error(`[Session ${session.sessionId}] Firestore hydrate error:`, err.message);
+  }
 }
 
-function updateState(updates) {
-  clientState = { ...clientState, ...updates };
-  console.log(`[Baileys State] -> ${clientState.status}`);
-  broadcastState();
+function broadcastSessionState(session, newState) {
+  session.clientState = {
+    ...session.clientState,
+    ...newState,
+    lastUpdated: new Date().toISOString()
+  };
+
+  const payload = `data: ${JSON.stringify(session.clientState)}\n\n`;
+  session.sseClients.forEach(res => res.write(payload));
 }
 
-let isInitializing = false;
+async function initBaileysSocketForSession(session) {
+  if (session.isInitializing) return;
+  session.isInitializing = true;
 
-async function initBaileysSocket() {
-  if (isInitializing) {
-    console.log('[Baileys] Initialization already in progress, ignoring concurrent call.');
-    return;
-  }
-  isInitializing = true;
+  console.log(`[Baileys ${session.sessionId}] Initializing WASocket connection...`);
 
-  if (sock) {
-    console.log('[Baileys] Tearing down existing socket listeners before reconnect...');
-    try {
-      sock.ev.removeAllListeners();
-      if (sock.ws) sock.ws.close();
-      sock = null;
-    } catch (e) {}
-  }
-
-  const authPath = path.join(__dirname, 'baileys_auth_info');
-  const { state, saveCreds } = await useMultiFileAuthState(authPath);
-  const { version, isLatest } = await fetchLatestBaileysVersion();
-  console.log(`[Baileys] Using WhatsApp Web v${version.join('.')}, isLatest: ${isLatest}`);
+  const { state, saveCreds } = await useMultiFileAuthState(session.authPath);
+  const { version } = await fetchLatestBaileysVersion();
 
   const hasSession = Boolean(state.creds && state.creds.me);
   if (hasSession) {
-    console.log('[Baileys] Existing session detected for:', state.creds.me.id);
-    updateState({
+    broadcastSessionState(session, {
       status: 'AUTHENTICATED',
       qrCodeDataUrl: null,
       error: null
     });
   } else {
-    updateState({
+    broadcastSessionState(session, {
       status: 'INITIALIZING',
       qrCodeDataUrl: null,
       userInfo: null,
@@ -234,7 +228,7 @@ async function initBaileysSocket() {
     });
   }
 
-  sock = makeWASocket({
+  session.sock = makeWASocket({
     version,
     logger,
     printQRInTerminal: false,
@@ -246,7 +240,7 @@ async function initBaileysSocket() {
       if (!key || !key.remoteJid || !key.id) return undefined;
       try {
         const remoteJid = jidNormalizedUser(key.remoteJid);
-        const chatMsgs = messagesMap.get(remoteJid) || [];
+        const chatMsgs = session.messagesMap.get(remoteJid) || [];
         const msgObj = chatMsgs.find(m => m.id === key.id);
         if (msgObj && msgObj.body) {
           return { conversation: msgObj.body };
@@ -261,37 +255,34 @@ async function initBaileysSocket() {
     keepAliveIntervalMs: 25000
   });
 
-  sock.ev.on('creds.update', saveCreds);
+  session.sock.ev.on('creds.update', saveCreds);
 
-  // Connection Updates (QR code, Ready, Logout)
-  sock.ev.on('connection.update', async (update) => {
+  session.sock.ev.on('connection.update', async (update) => {
     const { connection, lastDisconnect, qr } = update;
 
     if (qr) {
       if (!state.creds || !state.creds.me) {
-        console.log('[Baileys] QR Code received for new session...');
+        console.log(`[Baileys ${session.sessionId}] QR Code received...`);
         try {
           const qrDataUrl = await qrcode.toDataURL(qr, { margin: 2, scale: 8 });
-          updateState({
+          broadcastSessionState(session, {
             status: 'QR_READY',
             qrCodeDataUrl: qrDataUrl
           });
         } catch (err) {
-          console.error('[Baileys] Error generating QR data URL:', err);
+          console.error(`[Baileys ${session.sessionId}] QR generation error:`, err);
         }
-      } else {
-        console.log('[Baileys] Suppressed transient QR code since session is already authenticated.');
       }
     }
 
     if (connection === 'open') {
-      isInitializing = false;
-      console.log('[Baileys] WebSocket Connection OPEN! WhatsApp Ready!');
-      const userJid = sock.user ? jidNormalizedUser(sock.user.id) : (state.creds.me ? jidNormalizedUser(state.creds.me.id) : null);
+      session.isInitializing = false;
+      console.log(`[Baileys ${session.sessionId}] WebSocket Connection OPEN! WhatsApp Ready!`);
+      const userJid = session.sock.user ? jidNormalizedUser(session.sock.user.id) : (state.creds.me ? jidNormalizedUser(state.creds.me.id) : null);
       const phone = userJid ? userJid.split('@')[0] : '';
-      const pushname = (sock.user && sock.user.name) || (state.creds.me && state.creds.me.name) || 'WhatsApp User';
+      const pushname = (session.sock.user && session.sock.user.name) || (state.creds.me && state.creds.me.name) || 'WhatsApp User';
 
-      updateState({
+      broadcastSessionState(session, {
         status: 'READY',
         userInfo: {
           pushname,
@@ -302,91 +293,88 @@ async function initBaileysSocket() {
         qrCodeDataUrl: null
       });
 
-      saveStoreToDisk();
-      // Trigger background historical analysis automatically when WhatsApp becomes ready
-      setTimeout(() => runBackgroundHistoricalAnalysis(), 3000);
+      saveSessionStoreToDisk(session);
+      setTimeout(() => runBackgroundHistoricalAnalysisForSession(session), 3000);
     }
 
     if (connection === 'close') {
-      isInitializing = false;
+      session.isInitializing = false;
       const statusCode = lastDisconnect?.error?.output?.statusCode || lastDisconnect?.error?.statusCode;
       const isLoggedOut = statusCode === DisconnectReason.loggedOut;
       const isReplaced = statusCode === DisconnectReason.connectionReplaced || statusCode === 440;
 
-      console.log(`[Baileys] Connection closed. StatusCode: ${statusCode}, LoggedOut: ${isLoggedOut}, Replaced: ${isReplaced}`);
+      console.log(`[Baileys ${session.sessionId}] Connection closed. StatusCode: ${statusCode}, LoggedOut: ${isLoggedOut}, Replaced: ${isReplaced}`);
 
       if (isLoggedOut) {
-        console.log('[Baileys] Session logged out by WhatsApp.');
-        if (fs.existsSync(authPath)) {
-          fs.rmSync(authPath, { recursive: true, force: true });
+        if (fs.existsSync(session.authPath)) {
+          fs.rmSync(session.authPath, { recursive: true, force: true });
         }
-        chatsMap.clear();
-        messagesMap.clear();
-        tasksMap.clear();
-        updateState({ status: 'DISCONNECTED', qrCodeDataUrl: null, error: 'Session logged out. Re-scan QR code.' });
-        setTimeout(() => initBaileysSocket(), 1500);
+        session.chatsMap.clear();
+        session.messagesMap.clear();
+        session.tasksMap.clear();
+        broadcastSessionState(session, { status: 'DISCONNECTED', qrCodeDataUrl: null, error: 'Session logged out. Re-scan QR code.' });
+        setTimeout(() => initBaileysSocketForSession(session), 1500);
       } else if (isReplaced) {
-        console.warn('[Baileys] Connection replaced (440). Pausing 6s to release old stream...');
-        setTimeout(() => initBaileysSocket(), 6000);
+        setTimeout(() => initBaileysSocketForSession(session), 6000);
       } else {
-        console.log('[Baileys] Reconnecting WebSocket in 3 seconds...');
-        setTimeout(() => initBaileysSocket(), 3000);
+        setTimeout(() => initBaileysSocketForSession(session), 3000);
       }
     }
   });
 
-  // Handle Full History Sync from Phone (All Chats, Messages & Contacts!)
-  sock.ev.on('messaging-history.set', async ({ chats, messages, contacts }) => {
-    console.log(`[Baileys] History Sync: ${chats ? chats.length : 0} chats, ${messages ? messages.length : 0} messages, ${contacts ? contacts.length : 0} contacts.`);
-
-    if (contacts) {
-      for (const c of contacts) {
-        if (!c.id || c.id === 'status@broadcast') continue;
-        const existing = chatsMap.get(c.id) || {};
-        const contactName = c.name || c.notify || c.verifiedName || existing.name || c.id.split('@')[0];
-        chatsMap.set(c.id, {
-          ...existing,
-          id: c.id,
-          name: contactName,
-          isGroup: c.id.endsWith('@g.us'),
-          isArchived: Boolean(c.archived || existing.isArchived),
-          isPinned: Boolean(c.pinned || existing.isPinned),
-          unreadCount: c.unreadCount || existing.unreadCount || 0,
-          timestamp: c.conversationTimestamp ? Number(c.conversationTimestamp) : (existing.timestamp || 0),
-          lastMessage: existing.lastMessage || null,
-          profilePicUrl: null
-        });
-      }
+  // Handle Full History Sync
+  session.sock.ev.on('messaging-history.set', async ({ chats, messages, contacts }) => {
+    console.log(`[Baileys ${session.sessionId}] History Sync: ${chats ? chats.length : 0} chats, ${messages ? messages.length : 0} messages.`);
+    if (contacts && Array.isArray(contacts)) {
+      contacts.forEach(c => {
+        if (!c.id) return;
+        const normalizedJid = jidNormalizedUser(c.id);
+        const existing = session.chatsMap.get(normalizedJid) || {};
+        const resolvedName = resolveDisplayName(normalizedJid, c.name, c.notify);
+        existing.name = resolvedName;
+        existing.id = normalizedJid;
+        session.chatsMap.set(normalizedJid, existing);
+      });
     }
 
-    if (chats) {
-      for (const c of chats) {
-        if (!c.id || c.id === 'status@broadcast') continue;
-        const existing = chatsMap.get(c.id) || {};
-        chatsMap.set(c.id, {
-          ...existing,
-          id: c.id,
-          name: c.name || existing.name || c.id.split('@')[0],
-          isGroup: c.id.endsWith('@g.us'),
+    if (chats && Array.isArray(chats)) {
+      chats.forEach(c => {
+        if (!c.id) return;
+        const normalizedJid = jidNormalizedUser(c.id);
+        const existing = session.chatsMap.get(normalizedJid) || {};
+        const chatObj = {
+          id: normalizedJid,
+          name: resolveDisplayName(normalizedJid, existing.name || c.name, c.name),
+          isGroup: normalizedJid.endsWith('@g.us'),
           isArchived: Boolean(c.archived),
           isPinned: Boolean(c.pinned),
-          unreadCount: c.unreadCount || existing.unreadCount || 0,
-          timestamp: c.conversationTimestamp ? Number(c.conversationTimestamp) : (existing.timestamp || 0),
-          lastMessage: existing.lastMessage || null,
-          profilePicUrl: null
-        });
-      }
+          unreadCount: c.unreadCount || 0,
+          timestamp: Number(c.conversationTimestamp || Math.floor(Date.now() / 1000)),
+          profilePicUrl: existing.profilePicUrl || null
+        };
+        session.chatsMap.set(normalizedJid, chatObj);
+        syncChatToFirestore(chatObj, session.sessionId).catch(() => null);
+      });
     }
 
-    if (messages) {
+    if (messages && Array.isArray(messages)) {
       for (const msg of messages) {
-        if (!msg.message || !msg.key || !msg.key.remoteJid || msg.key.remoteJid === 'status@broadcast') continue;
-        const remoteJid = jidNormalizedUser(msg.key.remoteJid);
+        if (!msg.message) continue;
+        const rawJid = msg.key.remoteJid;
+        if (!rawJid || rawJid === 'status@broadcast') continue;
+        const remoteJid = jidNormalizedUser(rawJid);
+
+        let content = msg.message;
+        if (content?.ephemeralMessage?.message) content = content.ephemeralMessage.message;
+        if (content?.viewOnceMessage?.message) content = content.viewOnceMessage.message;
+
         const body =
-          msg.message.conversation ||
-          msg.message.extendedTextMessage?.text ||
-          msg.message.imageMessage?.caption ||
-          (msg.message.imageMessage ? '📷 Image' : '') ||
+          content?.conversation ||
+          content?.extendedTextMessage?.text ||
+          content?.imageMessage?.caption ||
+          content?.videoMessage?.caption ||
+          (content?.imageMessage ? '📷 Image' : '') ||
+          (content?.audioMessage ? '🎵 Audio' : '') ||
           '';
 
         const timestamp = Number(msg.messageTimestamp || Math.floor(Date.now() / 1000));
@@ -396,52 +384,32 @@ async function initBaileysSocket() {
         const formattedMsg = {
           id: msgId,
           body,
-          from: fromMe ? (sock.user ? jidNormalizedUser(sock.user.id) : '') : remoteJid,
-          to: fromMe ? remoteJid : (sock.user ? jidNormalizedUser(sock.user.id) : ''),
+          from: fromMe ? (session.sock.user ? jidNormalizedUser(session.sock.user.id) : '') : remoteJid,
+          to: fromMe ? remoteJid : (session.sock.user ? jidNormalizedUser(session.sock.user.id) : ''),
           fromMe,
           timestamp,
-          type: 'chat',
-          hasMedia: Boolean(msg.message.imageMessage),
+          type: content?.imageMessage ? 'image' : 'chat',
+          hasMedia: Boolean(content?.imageMessage || content?.videoMessage || content?.audioMessage),
           author: msg.key.participant || null,
           chatId: remoteJid
         };
 
-        if (!messagesMap.has(remoteJid)) {
-          messagesMap.set(remoteJid, []);
+        if (!session.messagesMap.has(remoteJid)) {
+          session.messagesMap.set(remoteJid, []);
         }
-        const chatMsgs = messagesMap.get(remoteJid);
+        const chatMsgs = session.messagesMap.get(remoteJid);
         if (!chatMsgs.some(m => m.id === msgId)) {
           chatMsgs.push(formattedMsg);
         }
-
-        const chatObj = chatsMap.get(remoteJid) || {
-          id: remoteJid,
-          name: remoteJid.split('@')[0],
-          isGroup: remoteJid.endsWith('@g.us'),
-          isArchived: false,
-          isPinned: false,
-          unreadCount: 0,
-          timestamp,
-          lastMessage: { body, timestamp, fromMe },
-          profilePicUrl: null
-        };
-
-        if (!chatObj.timestamp || timestamp >= chatObj.timestamp) {
-          chatObj.timestamp = timestamp;
-          chatObj.lastMessage = { body, timestamp, fromMe };
-        }
-        chatsMap.set(remoteJid, chatObj);
       }
     }
 
-    broadcastState();
-    saveStoreToDisk();
-    // Automatically launch silent background historical analysis worker
-    setTimeout(() => runBackgroundHistoricalAnalysis(), 2000);
+    saveSessionStoreToDisk(session);
+    console.log(`[Baileys ${session.sessionId}] Processed ${session.chatsMap.size} active chats into memory store.`);
   });
 
   // Real-time Messages Listener
-  sock.ev.on('messages.upsert', async ({ messages: rawMsgs, type }) => {
+  session.sock.ev.on('messages.upsert', async ({ messages: rawMsgs, type }) => {
     for (const msg of rawMsgs) {
       if (!msg.message) continue;
 
@@ -449,7 +417,6 @@ async function initBaileysSocket() {
       if (!rawJid || rawJid === 'status@broadcast') continue;
       const remoteJid = jidNormalizedUser(rawJid);
 
-      // Unwrap nested messages (ephemeral, view-once, document with caption, etc.)
       let content = msg.message;
       if (content?.ephemeralMessage?.message) content = content.ephemeralMessage.message;
       if (content?.viewOnceMessage?.message) content = content.viewOnceMessage.message;
@@ -481,8 +448,8 @@ async function initBaileysSocket() {
       const formattedMsg = {
         id: msgId,
         body,
-        from: fromMe ? (sock.user ? jidNormalizedUser(sock.user.id) : '') : remoteJid,
-        to: fromMe ? remoteJid : (sock.user ? jidNormalizedUser(sock.user.id) : ''),
+        from: fromMe ? (session.sock.user ? jidNormalizedUser(session.sock.user.id) : '') : remoteJid,
+        to: fromMe ? remoteJid : (session.sock.user ? jidNormalizedUser(session.sock.user.id) : ''),
         fromMe,
         timestamp,
         type: content?.imageMessage ? 'image' : (content?.videoMessage ? 'video' : (content?.audioMessage ? 'audio' : 'chat')),
@@ -491,24 +458,22 @@ async function initBaileysSocket() {
         chatId: remoteJid
       };
 
-      const existingChat = chatsMap.get(remoteJid);
+      const existingChat = session.chatsMap.get(remoteJid);
       const pushName = msg.pushName || null;
       let chatName = resolveDisplayName(remoteJid, existingChat?.name, pushName);
       if (existingChat && pushName) {
         existingChat.name = pushName;
       }
 
-      // Store message in messagesMap immediately
-      if (!messagesMap.has(remoteJid)) {
-        messagesMap.set(remoteJid, []);
+      if (!session.messagesMap.has(remoteJid)) {
+        session.messagesMap.set(remoteJid, []);
       }
-      const chatMsgs = messagesMap.get(remoteJid);
+      const chatMsgs = session.messagesMap.get(remoteJid);
       if (!chatMsgs.some(m => m.id === msgId)) {
         chatMsgs.push(formattedMsg);
         if (chatMsgs.length > 300) chatMsgs.shift();
       }
 
-      // Update chat in chatsMap immediately
       const updatedChat = existingChat || {
         id: remoteJid,
         name: chatName,
@@ -532,20 +497,20 @@ async function initBaileysSocket() {
         type: formattedMsg.type
       };
 
-      chatsMap.set(remoteJid, updatedChat);
-      saveStoreToDisk();
-      syncMessageToFirestore(remoteJid, formattedMsg).catch(() => null);
-      syncChatToFirestore(updatedChat).catch(() => null);
+      session.chatsMap.set(remoteJid, updatedChat);
+      saveSessionStoreToDisk(session);
+      syncMessageToFirestore(remoteJid, formattedMsg, session.sessionId).catch(() => null);
+      syncChatToFirestore(updatedChat, session.sessionId).catch(() => null);
 
-      console.log(`[Baileys SSE] 📩 Instant New Message for ${remoteJid}: "${body}"`);
+      console.log(`[Baileys SSE ${session.sessionId}] 📩 Instant New Message for ${remoteJid}: "${body}"`);
 
-      // ⚡ INSTANT SSE BROADCAST (0ms latency to UI)
+      // ⚡ INSTANT SSE BROADCAST TO SESSION CLIENTS
       const ssePayload = `data: ${JSON.stringify({
         eventType: 'NEW_MESSAGE',
         message: formattedMsg,
         chat: updatedChat
       })}\n\n`;
-      sseClients.forEach(res => res.write(ssePayload));
+      session.sseClients.forEach(res => res.write(ssePayload));
 
       // 🤖 Non-blocking Background Gemini AI Task Analysis
       if (body && body.trim().length > 2 && type === 'notify') {
@@ -557,10 +522,10 @@ async function initBaileysSocket() {
             if (aiAnalysis.hasTask) {
               const targetTaskId = `task-${msgId}`;
               let existingId = null;
-              if (tasksMap.has(targetTaskId)) {
+              if (session.tasksMap.has(targetTaskId)) {
                 existingId = targetTaskId;
               } else {
-                for (const [id, t] of tasksMap.entries()) {
+                for (const [id, t] of session.tasksMap.entries()) {
                   if (t.chatId === remoteJid && t.originalMessage === body) {
                     existingId = id;
                     break;
@@ -570,13 +535,13 @@ async function initBaileysSocket() {
 
               let taskObj;
               if (existingId) {
-                taskObj = tasksMap.get(existingId);
+                taskObj = session.tasksMap.get(existingId);
                 taskObj.priority = aiAnalysis.priority || taskObj.priority;
                 taskObj.category = aiAnalysis.category || taskObj.category;
                 taskObj.title = aiAnalysis.taskTitle || taskObj.title;
                 taskObj.dueDate = aiAnalysis.dueDate || taskObj.dueDate;
                 taskObj.verdict = aiAnalysis.verdict || aiAnalysis.summary || taskObj.verdict;
-                tasksMap.set(existingId, taskObj);
+                session.tasksMap.set(existingId, taskObj);
               } else {
                 taskObj = {
                   id: targetTaskId,
@@ -593,498 +558,338 @@ async function initBaileysSocket() {
                   verdict: aiAnalysis.verdict || aiAnalysis.summary || body,
                   createdAt: new Date().toISOString()
                 };
-                tasksMap.set(targetTaskId, taskObj);
+                session.tasksMap.set(targetTaskId, taskObj);
               }
 
-              syncTaskToFirestore(taskObj).catch(() => null);
-              console.log(`[Gemini AI 🎯] Extracted Actionable Task: "${taskObj.title}" (${taskObj.priority})`);
+              syncTaskToFirestore(taskObj, session.sessionId).catch(() => null);
+              console.log(`[Gemini AI 🎯 ${session.sessionId}] Extracted Task: "${taskObj.title}"`);
 
-              // Broadcast NEW_TASK event via SSE
               const taskPayload = `data: ${JSON.stringify({
                 eventType: 'NEW_TASK',
                 task: taskObj
               })}\n\n`;
-              sseClients.forEach(res => res.write(taskPayload));
+              session.sseClients.forEach(res => res.write(taskPayload));
             }
           })
-          .catch(err => console.error('[Gemini AI] Background analysis error:', err));
+          .catch(err => console.error(`[Gemini AI ${session.sessionId}] Background analysis error:`, err));
       }
     }
   });
 
   // Sync Chats
-  sock.ev.on('chats.upsert', (newChats) => {
+  session.sock.ev.on('chats.upsert', (newChats) => {
     for (const c of newChats) {
       if (!c.id) continue;
-      const existing = chatsMap.get(c.id) || {};
-      chatsMap.set(c.id, {
-        ...existing,
+      const existing = session.chatsMap.get(c.id) || {};
+      const chatObj = {
         id: c.id,
-        name: c.name || existing.name || c.id.split('@')[0],
+        name: resolveDisplayName(c.id, existing.name || c.name, c.name),
         isGroup: c.id.endsWith('@g.us'),
+        isArchived: Boolean(c.archived || existing.isArchived),
+        isPinned: Boolean(c.pinned || existing.isPinned),
         unreadCount: c.unreadCount || existing.unreadCount || 0,
-        timestamp: c.conversationTimestamp ? Number(c.conversationTimestamp) : (existing.timestamp || 0)
-      });
+        timestamp: Number(c.conversationTimestamp || existing.timestamp || Math.floor(Date.now() / 1000)),
+        profilePicUrl: existing.profilePicUrl || null
+      };
+      session.chatsMap.set(c.id, chatObj);
     }
-    broadcastState();
-    saveStoreToDisk();
-  });
-
-  sock.ev.on('chats.set', ({ chats }) => {
-    console.log(`[Baileys] Chats set received: ${chats ? chats.length : 0} chats.`);
-    if (chats) {
-      for (const c of chats) {
-        if (!c.id || c.id === 'status@broadcast') continue;
-        const existing = chatsMap.get(c.id) || {};
-        chatsMap.set(c.id, {
-          ...existing,
-          id: c.id,
-          name: c.name || existing.name || c.id.split('@')[0],
-          isGroup: c.id.endsWith('@g.us'),
-          unreadCount: c.unreadCount || existing.unreadCount || 0,
-          timestamp: c.conversationTimestamp ? Number(c.conversationTimestamp) : (existing.timestamp || 0)
-        });
-      }
-      broadcastState();
-      saveStoreToDisk();
-    }
-  });
-
-  sock.ev.on('chats.update', (updates) => {
-    for (const u of updates) {
-      if (!u.id) continue;
-      const existing = chatsMap.get(u.id);
-      if (existing) {
-        chatsMap.set(u.id, {
-          ...existing,
-          ...u,
-          name: u.name || existing.name
-        });
-      }
-    }
-    saveStoreToDisk();
-  });
-
-  // Sync Contacts
-  sock.ev.on('contacts.set', ({ contacts }) => {
-    console.log(`[Baileys] Contacts set received: ${contacts ? contacts.length : 0} contacts.`);
-    if (contacts) {
-      for (const c of contacts) {
-        if (!c.id || c.id === 'status@broadcast') continue;
-        const existing = chatsMap.get(c.id) || {};
-        const contactName = c.name || c.notify || c.verifiedName || existing.name || c.id.split('@')[0];
-        chatsMap.set(c.id, {
-          ...existing,
-          id: c.id,
-          name: contactName,
-          isGroup: c.id.endsWith('@g.us'),
-          isArchived: existing.isArchived || false,
-          isPinned: existing.isPinned || false,
-          unreadCount: existing.unreadCount || 0,
-          timestamp: existing.timestamp || Math.floor(Date.now() / 1000),
-          lastMessage: existing.lastMessage || null
-        });
-      }
-      broadcastState();
-      saveStoreToDisk();
-    }
-  });
-
-  sock.ev.on('contacts.upsert', (newContacts) => {
-    for (const c of newContacts) {
-      if (!c.id || c.id === 'status@broadcast') continue;
-      const existing = chatsMap.get(c.id) || {};
-      const contactName = c.name || c.notify || c.verifiedName || existing.name || c.id.split('@')[0];
-      chatsMap.set(c.id, {
-        ...existing,
-        id: c.id,
-        name: contactName,
-        isGroup: c.id.endsWith('@g.us'),
-        unreadCount: existing.unreadCount || 0,
-        timestamp: existing.timestamp || Math.floor(Date.now() / 1000)
-      });
-    }
-    broadcastState();
-    saveStoreToDisk();
+    saveSessionStoreToDisk(session);
   });
 }
 
-// Routes
-// 1. SSE Event Stream
-app.get('/api/events', (req, res) => {
-  res.setHeader('Content-Type', 'text/event-stream');
-  res.setHeader('Cache-Control', 'no-cache');
-  res.setHeader('Connection', 'keep-alive');
+async function runBackgroundHistoricalAnalysisForSession(session) {
+  if (!session.chatsMap || session.chatsMap.size === 0) return;
+  console.log(`[Gemini AI 🤖 ${session.sessionId}] Background historical analysis starting...`);
 
-  res.write(`data: ${JSON.stringify({ eventType: 'STATE_UPDATE', ...clientState })}\n\n`);
-  sseClients.push(res);
-
-  req.on('close', () => {
-    sseClients = sseClients.filter(c => c !== res);
-  });
-});
-
-// 2. GET /api/status
-app.get('/api/status', (req, res) => {
-  res.json(clientState);
-});
-
-// 3. GET /api/chats - Return all chats
-app.get('/api/chats', (req, res) => {
-  if (clientState.status !== 'READY' || !sock) {
-    return res.status(400).json({ error: 'WhatsApp client is not ready.' });
-  }
-
-  const chats = Array.from(chatsMap.values());
-  chats.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
-  res.json({ chats, count: chats.length });
-});
-
-// 4. GET /api/chats/:chatId/messages - Return message history
-app.get('/api/chats/:chatId/messages', (req, res) => {
-  if (clientState.status !== 'READY' || !sock) {
-    return res.status(400).json({ error: 'WhatsApp client is not ready.' });
-  }
-
-  let { chatId } = req.params;
-  const reqUser = chatId.split('@')[0].split(':')[0];
-  const matchedMessages = [];
-
-  for (const [key, msgList] of messagesMap.entries()) {
-    const keyUser = key.split('@')[0].split(':')[0];
-    if (key === chatId || keyUser === reqUser) {
-      matchedMessages.push(...msgList);
+  const allRecentMessages = [];
+  for (const [jid, msgs] of session.messagesMap.entries()) {
+    const chatObj = session.chatsMap.get(jid);
+    const chatName = chatObj ? chatObj.name : 'Unknown';
+    if (Array.isArray(msgs)) {
+      msgs.slice(-15).forEach(m => {
+        if (m.body && m.body.trim().length > 3) {
+          allRecentMessages.push({ ...m, chatName });
+        }
+      });
     }
   }
 
-  const uniqueMap = new Map();
-  matchedMessages.forEach(m => uniqueMap.set(m.id, m));
-  const sortedMessages = Array.from(uniqueMap.values()).sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+  if (allRecentMessages.length === 0) return;
 
-  res.json({ chatId, messages: sortedMessages });
+  try {
+    const extractedTasks = await batchAnalyzeAllMessages(allRecentMessages);
+    if (Array.isArray(extractedTasks) && extractedTasks.length > 0) {
+      console.log(`[Gemini AI 🚀 ${session.sessionId}] Extracted ${extractedTasks.length} tasks from background analysis.`);
+      extractedTasks.forEach(task => {
+        if (!task.id) task.id = `task-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+        session.tasksMap.set(task.id, task);
+        syncTaskToFirestore(task, session.sessionId).catch(() => null);
+      });
+      saveSessionStoreToDisk(session);
+
+      const bulkPayload = `data: ${JSON.stringify({ eventType: 'BULK_ANALYSIS_COMPLETE' })}\n\n`;
+      session.sseClients.forEach(res => res.write(bulkPayload));
+    }
+  } catch (err) {
+    console.error(`[Gemini AI ${session.sessionId}] Historical analysis error:`, err.message);
+  }
+}
+
+// Auto-restore any existing sessions on server boot
+function restoreExistingSessions() {
+  try {
+    if (fs.existsSync(SESSIONS_DIR)) {
+      const sessionFolders = fs.readdirSync(SESSIONS_DIR);
+      sessionFolders.forEach(folderName => {
+        const fullPath = path.join(SESSIONS_DIR, folderName);
+        if (fs.statSync(fullPath).isDirectory()) {
+          console.log(`[Server] Restoring session from disk: "${folderName}"`);
+          getOrCreateSession(folderName);
+        }
+      });
+    }
+  } catch (err) {
+    console.error('[Server] Session restore error:', err.message);
+  }
+}
+
+// Middleware: attach user's session instance to every request
+app.use((req, res, next) => {
+  const rawId = req.headers['x-session-id'] || req.query.sessionId || 'default';
+  req.sessionInstance = getOrCreateSession(rawId);
+  next();
 });
 
-// 5. POST /api/messages/send - Send a message to chat or phone number
+// Real-time EventSource Stream per session
+app.get('/api/events', (req, res) => {
+  const session = req.sessionInstance;
+
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.flushHeaders();
+
+  session.sseClients.add(res);
+
+  // Immediately send initial connection state
+  res.write(`data: ${JSON.stringify(session.clientState)}\n\n`);
+
+  req.on('close', () => {
+    session.sseClients.delete(res);
+  });
+});
+
+app.get('/api/status', (req, res) => {
+  res.json(req.sessionInstance.clientState);
+});
+
+app.get('/api/chats', (req, res) => {
+  const session = req.sessionInstance;
+  if (session.clientState.status !== 'READY' && session.chatsMap.size === 0) {
+    return res.status(503).json({ error: 'WhatsApp client not ready yet' });
+  }
+
+  const sortedChats = Array.from(session.chatsMap.values())
+    .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+
+  res.json({ chats: sortedChats });
+});
+
+app.get('/api/chats/:chatId/messages', (req, res) => {
+  const session = req.sessionInstance;
+  const { chatId } = req.params;
+  const limit = parseInt(req.query.limit) || 50;
+
+  const remoteJid = jidNormalizedUser(decodeURIComponent(chatId));
+  const msgs = session.messagesMap.get(remoteJid) || [];
+  const sliced = msgs.slice(-limit);
+
+  res.json({ chatId: remoteJid, messages: sliced, total: msgs.length });
+});
+
 app.post('/api/messages/send', async (req, res) => {
-  if (clientState.status !== 'READY' || !sock) {
-    return res.status(400).json({ error: 'WhatsApp client is not ready. Please connect first.' });
+  const session = req.sessionInstance;
+  const { chatId, message } = req.body;
+
+  if (session.clientState.status !== 'READY' || !session.sock) {
+    return res.status(503).json({ error: 'WhatsApp socket not connected' });
   }
 
-  let { chatId, message } = req.body;
-  if (!chatId || !message) {
-    return res.status(400).json({ error: 'chatId and message are required.' });
-  }
-
-  const cleanDigits = chatId.replace(/[^0-9]/g, '');
-  let targetJid = chatId.trim();
-
-  if (!targetJid.includes('@')) {
-    targetJid = `${cleanDigits}@s.whatsapp.net`;
+  if (!chatId || !message || typeof message !== 'string') {
+    return res.status(400).json({ error: 'chatId and message string required' });
   }
 
   try {
-    console.log(`[API] Baileys sending text message to ${targetJid}...`);
-    const sentMsg = await sock.sendMessage(targetJid, { text: message });
+    const remoteJid = jidNormalizedUser(chatId);
+    const sent = await session.sock.sendMessage(remoteJid, { text: message });
 
+    const msgId = sent.key.id || String(Date.now());
     const timestamp = Math.floor(Date.now() / 1000);
-    const msgId = sentMsg?.key?.id || String(Date.now());
-
-    // 🤖 Analyze sent message with Gemini AI
-    const existingChat = chatsMap.get(targetJid);
-    const chatName = resolveDisplayName(targetJid, existingChat?.name, null);
-    const aiAnalysis = await analyzeMessage(message, chatName).catch(() => null);
 
     const formattedMsg = {
       id: msgId,
       body: message,
+      from: session.sock.user ? jidNormalizedUser(session.sock.user.id) : '',
+      to: remoteJid,
       fromMe: true,
       timestamp,
-      chatId: targetJid,
-      aiAnalysis
+      type: 'chat',
+      hasMedia: false,
+      author: null,
+      chatId: remoteJid
     };
 
-    if (aiAnalysis && aiAnalysis.hasTask) {
-      const taskId = `task-${msgId}`;
-      const taskObj = {
-        id: taskId,
-        title: aiAnalysis.taskTitle || message,
-        chatId: targetJid,
-        chatName,
-        originalMessage: message,
-        priority: aiAnalysis.priority || 'MEDIUM',
-        category: aiAnalysis.category || 'General',
-        status: 'TO_DO',
-        dueDate: aiAnalysis.dueDate || 'Upcoming',
-        sentiment: aiAnalysis.sentiment || 'Neutral',
-        summary: aiAnalysis.summary || '',
-        createdAt: new Date().toISOString()
-      };
-
-      tasksMap.set(taskId, taskObj);
-      console.log(`[Gemini AI 🎯] Extracted Actionable Task from sent message: "${taskObj.title}"`);
-
-      const taskPayload = `data: ${JSON.stringify({
-        eventType: 'NEW_TASK',
-        task: taskObj
-      })}\n\n`;
-      sseClients.forEach(res => res.write(taskPayload));
+    if (!session.messagesMap.has(remoteJid)) {
+      session.messagesMap.set(remoteJid, []);
     }
+    session.messagesMap.get(remoteJid).push(formattedMsg);
 
-    // Store in messagesMap
-    if (!messagesMap.has(targetJid)) {
-      messagesMap.set(targetJid, []);
-    }
-    messagesMap.get(targetJid).push(formattedMsg);
-
-    // Update in chatsMap
-    const updatedChat = existingChat || {
-      id: targetJid,
-      name: chatName,
-      isGroup: targetJid.endsWith('@g.us'),
-      isArchived: false,
-      isPinned: false,
-      unreadCount: 0,
-      timestamp,
-      profilePicUrl: null
+    const existingChat = session.chatsMap.get(remoteJid) || {
+      id: remoteJid,
+      name: resolveDisplayName(remoteJid, null, null),
+      isGroup: remoteJid.endsWith('@g.us'),
+      unreadCount: 0
     };
 
-    updatedChat.name = chatName;
+    existingChat.timestamp = timestamp;
+    existingChat.lastMessage = { body: message, timestamp, fromMe: true, type: 'chat' };
+    session.chatsMap.set(remoteJid, existingChat);
+    saveSessionStoreToDisk(session);
 
-    updatedChat.timestamp = timestamp;
-    updatedChat.lastMessage = {
-      body: message,
-      timestamp,
-      fromMe: true
-    };
-    chatsMap.set(targetJid, updatedChat);
-    saveStoreToDisk();
-
-    res.json({
-      success: true,
-      chatId: targetJid,
-      message: formattedMsg
-    });
+    res.json({ success: true, message: formattedMsg });
   } catch (err) {
-    console.error(`[API] Baileys send error for ${targetJid}:`, err);
-    res.status(400).json({
-      error: 'Could not send message via Baileys WebSocket: ' + (err.message || String(err))
-    });
+    console.error(`[Session ${session.sessionId}] Error sending message:`, err);
+    res.status(500).json({ error: 'Failed to send message via WhatsApp' });
   }
 });
 
-// 📋 6. GET /api/tasks - Fetch all extracted AI tasks
+// Tasks Endpoints
 app.get('/api/tasks', (req, res) => {
-  const tasks = Array.from(tasksMap.values());
-  tasks.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-  res.json({ tasks, count: tasks.length });
+  const tasks = Array.from(req.sessionInstance.tasksMap.values());
+  res.json({ tasks });
 });
 
-// 📋 7. POST /api/tasks - Manually create a task
 app.post('/api/tasks', (req, res) => {
-  const { title, chatId, chatName, priority, category, dueDate } = req.body;
-  if (!title) return res.status(400).json({ error: 'Title is required.' });
+  const session = req.sessionInstance;
+  const taskData = req.body;
+  if (!taskData || !taskData.title) {
+    return res.status(400).json({ error: 'Task title is required' });
+  }
 
-  const taskId = `task-manual-${Date.now()}`;
-  const newTask = {
+  const taskId = taskData.id || `task-${Date.now()}`;
+  const taskObj = {
     id: taskId,
-    title,
-    chatId: chatId || null,
-    chatName: chatName || 'Manual Task',
-    originalMessage: title,
-    priority: priority || 'MEDIUM',
-    category: category || 'General',
-    status: 'TO_DO',
-    dueDate: dueDate || 'Today',
-    sentiment: 'Neutral',
-    summary: title,
+    title: taskData.title,
+    chatId: taskData.chatId || '',
+    chatName: taskData.chatName || 'Manual Entry',
+    originalMessage: taskData.originalMessage || taskData.title,
+    priority: taskData.priority || 'MEDIUM',
+    category: taskData.category || 'General',
+    status: taskData.status || 'TO_DO',
+    dueDate: taskData.dueDate || 'Upcoming',
+    sentiment: taskData.sentiment || 'Neutral',
+    summary: taskData.summary || taskData.title,
+    verdict: taskData.verdict || taskData.title,
     createdAt: new Date().toISOString()
   };
 
-  tasksMap.set(taskId, newTask);
-  syncTaskToFirestore(newTask).catch(() => null);
-  saveStoreToDisk();
-  res.json({ success: true, task: newTask });
+  session.tasksMap.set(taskId, taskObj);
+  saveSessionStoreToDisk(session);
+  syncTaskToFirestore(taskObj, session.sessionId).catch(() => null);
+
+  res.json({ success: true, task: taskObj });
 });
 
-// 📋 8. PATCH /api/tasks/:id - Update task status
 app.patch('/api/tasks/:id', (req, res) => {
+  const session = req.sessionInstance;
   const { id } = req.params;
-  const { status, priority } = req.body;
+  const updates = req.body;
 
-  const task = tasksMap.get(id);
-  if (!task) return res.status(404).json({ error: 'Task not found.' });
+  if (!session.tasksMap.has(id)) {
+    return res.status(404).json({ error: 'Task not found' });
+  }
 
-  if (status) task.status = status;
-  if (priority) task.priority = priority;
+  const existing = session.tasksMap.get(id);
+  const updated = { ...existing, ...updates, updatedAt: new Date().toISOString() };
+  session.tasksMap.set(id, updated);
+  saveSessionStoreToDisk(session);
+  syncTaskToFirestore(updated, session.sessionId).catch(() => null);
 
-  tasksMap.set(id, task);
-  syncTaskToFirestore(task).catch(() => null);
-  saveStoreToDisk();
-  res.json({ success: true, task });
+  res.json({ success: true, task: updated });
 });
 
-// 📋 9. DELETE /api/tasks/:id - Delete task
 app.delete('/api/tasks/:id', (req, res) => {
+  const session = req.sessionInstance;
   const { id } = req.params;
-  tasksMap.delete(id);
-  deleteTaskFromFirestore(id).catch(() => null);
-  saveStoreToDisk();
+
+  session.tasksMap.delete(id);
+  saveSessionStoreToDisk(session);
+  deleteTaskFromFirestore(id, session.sessionId).catch(() => null);
+
   res.json({ success: true, id });
 });
 
-// 🤖 10. POST /api/ai/replies - Generate 3 Gemini AI reply suggestions
-app.post('/api/ai/replies', async (req, res) => {
-  const { chatId } = req.body;
-  const messages = messagesMap.get(chatId) || [];
-  const chatObj = chatsMap.get(chatId);
-  const contactName = chatObj ? chatObj.name : 'Contact';
-
-  const replies = await generateSmartReplies(messages, contactName);
-  res.json({ replies });
-});
-
-// 11. POST /api/logout - Purge auth & restart socket
-app.post('/api/logout', async (req, res) => {
+app.post('/api/logout', (req, res) => {
+  const session = req.sessionInstance;
   try {
-    if (sock) {
-      await sock.logout().catch(() => {});
+    if (session.sock) {
+      session.sock.logout().catch(() => null);
     }
-
-    const authPath = path.join(__dirname, 'baileys_auth_info');
-    if (fs.existsSync(authPath)) {
-      fs.rmSync(authPath, { recursive: true, force: true });
+    if (fs.existsSync(session.authPath)) {
+      fs.rmSync(session.authPath, { recursive: true, force: true });
     }
-
-    chatsMap.clear();
-    messagesMap.clear();
-    tasksMap.clear();
-    if (fs.existsSync(STORE_PATH)) {
-      fs.rmSync(STORE_PATH, { force: true });
-    }
-
-    console.log('[Baileys] Auth info cleared. Restarting connection...');
-    initBaileysSocket();
-    res.json({ success: true, message: 'Logged out. Re-generating QR code...' });
+    session.chatsMap.clear();
+    session.messagesMap.clear();
+    session.tasksMap.clear();
+    broadcastSessionState(session, {
+      status: 'DISCONNECTED',
+      qrCodeDataUrl: null,
+      userInfo: null,
+      error: 'Session logged out manually.'
+    });
+    setTimeout(() => initBaileysSocketForSession(session), 1000);
+    res.json({ success: true, message: 'Logged out successfully' });
   } catch (err) {
-    console.error('[API] Logout error:', err);
-    res.status(500).json({ error: 'Failed to logout: ' + err.message });
+    res.status(500).json({ error: err.message });
   }
 });
 
-// 12. POST /api/restart
 app.post('/api/restart', (req, res) => {
-  chatsMap.clear();
-  messagesMap.clear();
-  tasksMap.clear();
-  initBaileysSocket();
-  res.json({ success: true, message: 'Re-initializing Baileys WebSocket...' });
-});
-
-// 12.1 POST /api/chats/sync - Soft reconnect to trigger WhatsApp contacts/chats sync
-app.post('/api/chats/sync', (req, res) => {
-  console.log('[Baileys] Manual chat & contact sync requested. Re-connecting socket...');
-  if (sock && sock.ws) {
-    try {
-      sock.ws.close();
-    } catch (e) {}
-  }
-  setTimeout(() => initBaileysSocket(), 800);
-  res.json({ success: true, message: 'Syncing chats and contacts from WhatsApp device...' });
-});
-
-// 📊 13. POST /api/ai/analyze-all - Scan and analyze all historical messages across all chats
-app.post('/api/ai/analyze-all', async (req, res) => {
+  const session = req.sessionInstance;
   try {
-    console.log('[Gemini AI ⚡] Starting bulk message analysis across all chats...');
-    const report = await batchAnalyzeAllMessages(chatsMap, messagesMap, tasksMap);
-
-    const tasksArray = Array.from(tasksMap.values());
-    const ssePayload = `data: ${JSON.stringify({
-      eventType: 'BULK_ANALYSIS_COMPLETE',
-      tasksCount: tasksArray.length,
-      report
-    })}\n\n`;
-    sseClients.forEach(c => c.write(ssePayload));
-
-    res.json({ success: true, report, tasks: tasksArray });
+    if (session.sock) {
+      session.sock.end(new Error('Manual Restart'));
+    }
+    setTimeout(() => initBaileysSocketForSession(session), 1000);
+    res.json({ success: true, message: 'Restarting WhatsApp socket...' });
   } catch (err) {
-    console.error('[API] Bulk analysis error:', err);
-    res.status(500).json({ error: 'Bulk analysis failed: ' + err.message });
+    res.status(500).json({ error: err.message });
   }
 });
 
-// 📊 14. GET /api/ai/analytics - Get computed analytics data for dedicated report page
-app.get('/api/ai/analytics', (req, res) => {
-  const tasks = Array.from(tasksMap.values());
-  const chats = Array.from(chatsMap.values());
-
-  let totalMessagesCount = 0;
-  for (const msgs of messagesMap.values()) {
-    totalMessagesCount += msgs.length;
-  }
-
-  const highPriority = tasks.filter(t => t.priority === 'HIGH').length;
-  const mediumPriority = tasks.filter(t => t.priority === 'MEDIUM').length;
-  const lowPriority = tasks.filter(t => t.priority === 'LOW').length;
-
-  const urgentCategory = tasks.filter(t => t.category === 'Urgent').length;
-  const meetingCategory = tasks.filter(t => t.category === 'Meeting').length;
-  const workCategory = tasks.filter(t => t.category === 'Work').length;
-  const followUpCategory = tasks.filter(t => t.category === 'Follow-up').length;
-  const paymentCategory = tasks.filter(t => t.category === 'Payment').length;
-
-  const chatInsights = chats.map(c => {
-    const msgs = messagesMap.get(c.id) || [];
-    const chatTasks = tasks.filter(t => t.chatId === c.id);
-    return {
-      chatId: c.id,
-      chatName: c.name,
-      messagesCount: msgs.length,
-      taskCount: chatTasks.length,
-      lastTimestamp: c.timestamp || 0
-    };
-  });
-
-  res.json({
-    totalChats: chats.length,
-    totalMessages: totalMessagesCount,
-    totalTasks: tasks.length,
-    priorityBreakdown: { high: highPriority, medium: mediumPriority, low: lowPriority },
-    categoryBreakdown: {
-      urgent: urgentCategory,
-      meeting: meetingCategory,
-      work: workCategory,
-      followUp: followUpCategory,
-      payment: paymentCategory
-    },
-    chatInsights
-  });
+app.post('/api/ai/analyze-all', async (req, res) => {
+  const session = req.sessionInstance;
+  runBackgroundHistoricalAnalysisForSession(session);
+  res.json({ success: true, message: 'Bulk historical analysis triggered in background.' });
 });
 
-// Start Server
+// Start Server & Restore Sessions
 const serverInstance = app.listen(PORT, () => {
-  console.log(`\n🚀 Baileys + Gemini AI Server listening on http://localhost:${PORT}`);
-  initBaileysSocket();
+  console.log(`\n🚀 Multi-Tenant WhatsApp + Gemini AI Server listening on http://localhost:${PORT}`);
+  restoreExistingSessions();
+  // Ensure default session is created if none exists
+  getOrCreateSession('default');
 });
 
 serverInstance.on('error', (err) => {
   if (err.code === 'EADDRINUSE') {
-    console.log(`\n🟢 Port ${PORT} is ALREADY IN USE by your background macOS service (com.whatsapp.taskmanager).`);
-    console.log(`✨ The WhatsApp Task Manager backend is already online and running in the background!`);
-    console.log(`👉 You do NOT need to run 'npm start' manually.\n`);
+    console.log(`\n🟢 Port ${PORT} is ALREADY IN USE by another process.`);
     process.exit(0);
   } else {
     console.error('Server error:', err);
   }
 });
 
-// Clean shutdown signal handlers
-process.on('SIGINT', () => {
-  console.log('\n[Server] Shutting down cleanly...');
-  process.exit(0);
-});
-
-process.on('SIGTERM', () => {
-  console.log('\n[Server] Shutting down cleanly...');
-  process.exit(0);
-});
+// Clean shutdown
+process.on('SIGINT', () => process.exit(0));
+process.on('SIGTERM', () => process.exit(0));

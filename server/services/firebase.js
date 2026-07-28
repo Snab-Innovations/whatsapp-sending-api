@@ -55,19 +55,24 @@ function cleanForFirestore(obj) {
   return cleaned;
 }
 
+function getSafeSessionId(sessionId) {
+  return String(sessionId || 'default').replace(/[^a-zA-Z0-9_-]/g, '_');
+}
+
 /**
- * Syncs / updates a task in Cloud Firestore collection "tasks"
+ * Syncs / updates a task in Cloud Firestore collection
  */
-async function syncTaskToFirestore(task) {
+async function syncTaskToFirestore(task, sessionId = 'default') {
   if (!db || !task || !task.id) return;
   try {
-    const taskRef = doc(db, 'tasks', String(task.id));
+    const safeSession = getSafeSessionId(sessionId);
+    const taskRef = doc(db, 'users', safeSession, 'tasks', String(task.id));
     const cleanedPayload = cleanForFirestore({
       ...task,
       syncedAt: new Date().toISOString()
     });
     await setDoc(taskRef, cleanedPayload, { merge: true });
-    console.log(`[Firebase ➔ Firestore 💾] Synced Task "${task.id}" to Cloud Firestore.`);
+    console.log(`[Firebase ➔ Firestore 💾] Synced Task "${task.id}" for session "${safeSession}".`);
   } catch (err) {
     console.error(`[Firebase ➔ Firestore] Error syncing task ${task.id}:`, err.message);
   }
@@ -76,25 +81,27 @@ async function syncTaskToFirestore(task) {
 /**
  * Deletes a task from Cloud Firestore
  */
-async function deleteTaskFromFirestore(taskId) {
+async function deleteTaskFromFirestore(taskId, sessionId = 'default') {
   if (!db || !taskId) return;
   try {
-    const taskRef = doc(db, 'tasks', String(taskId));
+    const safeSession = getSafeSessionId(sessionId);
+    const taskRef = doc(db, 'users', safeSession, 'tasks', String(taskId));
     await deleteDoc(taskRef);
-    console.log(`[Firebase ➔ Firestore 🗑️] Deleted Task "${taskId}" from Cloud Firestore.`);
+    console.log(`[Firebase ➔ Firestore 🗑️] Deleted Task "${taskId}" for session "${safeSession}".`);
   } catch (err) {
     console.error(`[Firebase ➔ Firestore] Error deleting task ${taskId}:`, err.message);
   }
 }
 
 /**
- * Syncs chat metadata to Cloud Firestore collection "chats"
+ * Syncs chat metadata to Cloud Firestore
  */
-async function syncChatToFirestore(chat) {
+async function syncChatToFirestore(chat, sessionId = 'default') {
   if (!db || !chat || !chat.id) return;
   try {
+    const safeSession = getSafeSessionId(sessionId);
     const safeId = String(chat.id).replace(/\//g, '_');
-    const chatRef = doc(db, 'chats', safeId);
+    const chatRef = doc(db, 'users', safeSession, 'chats', safeId);
     const cleanedPayload = cleanForFirestore({
       ...chat,
       syncedAt: new Date().toISOString()
@@ -108,11 +115,12 @@ async function syncChatToFirestore(chat) {
 /**
  * Syncs a WhatsApp message & its AI Verdict to Cloud Firestore
  */
-async function syncMessageToFirestore(chatId, message) {
+async function syncMessageToFirestore(chatId, message, sessionId = 'default') {
   if (!db || !chatId || !message || !message.id) return;
   try {
+    const safeSession = getSafeSessionId(sessionId);
     const safeChatId = String(chatId).replace(/\//g, '_');
-    const msgRef = doc(db, 'chats', safeChatId, 'messages', String(message.id));
+    const msgRef = doc(db, 'users', safeSession, 'chats', safeChatId, 'messages', String(message.id));
     const cleanedPayload = cleanForFirestore({
       ...message,
       syncedAt: new Date().toISOString()
@@ -124,18 +132,18 @@ async function syncMessageToFirestore(chatId, message) {
 }
 
 /**
- * Loads all stored tasks from Cloud Firestore on server startup
+ * Loads all stored tasks from Cloud Firestore for a given session
  */
-async function loadTasksFromFirestore() {
+async function loadTasksFromFirestore(sessionId = 'default') {
   if (!db) return [];
   try {
-    const tasksRef = collection(db, 'tasks');
+    const safeSession = getSafeSessionId(sessionId);
+    const tasksRef = collection(db, 'users', safeSession, 'tasks');
     const snapshot = await getDocs(tasksRef);
     const tasks = [];
     snapshot.forEach(docSnap => {
       tasks.push(docSnap.data());
     });
-    console.log(`[Firebase ➔ Firestore 📥] Loaded ${tasks.length} tasks from Cloud Firestore.`);
     return tasks;
   } catch (err) {
     console.error('[Firebase ➔ Firestore] Error loading tasks from Firestore:', err.message);
@@ -144,18 +152,18 @@ async function loadTasksFromFirestore() {
 }
 
 /**
- * Loads all stored chats from Cloud Firestore on server startup
+ * Loads all stored chats from Cloud Firestore for a given session
  */
-async function loadChatsFromFirestore() {
+async function loadChatsFromFirestore(sessionId = 'default') {
   if (!db) return [];
   try {
-    const chatsRef = collection(db, 'chats');
+    const safeSession = getSafeSessionId(sessionId);
+    const chatsRef = collection(db, 'users', safeSession, 'chats');
     const snapshot = await getDocs(chatsRef);
     const chats = [];
     snapshot.forEach(docSnap => {
       chats.push(docSnap.data());
     });
-    console.log(`[Firebase ➔ Firestore 📥] Loaded ${chats.length} chats from Cloud Firestore.`);
     return chats;
   } catch (err) {
     console.error('[Firebase ➔ Firestore] Error loading chats from Firestore:', err.message);
