@@ -16,8 +16,10 @@ export default function ChatWindow({ chat, messages, loadingMessages, onSendMess
 
   useEffect(() => {
     scrollToBottom();
-    setAiReplies([]);
-  }, [messages, chat]);
+    if (chat && messages && messages.length > 0) {
+      handleFetchAIReplys();
+    }
+  }, [messages.length, chat?.id]);
 
   const handleFetchAIReplys = async () => {
     if (!chat) return;
@@ -281,6 +283,42 @@ export default function ChatWindow({ chat, messages, loadingMessages, onSendMess
           })
         )}
         <div ref={messagesEndRef} />
+      </div>
+
+      {/* 🔮 AI Smart Reply Suggestions Bar */}
+      <div className="px-3 sm:px-4 py-2 bg-slate-50 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2 overflow-x-auto py-1 scrollbar-none max-w-full">
+          <button
+            type="button"
+            onClick={handleFetchAIReplys}
+            disabled={loadingAiReplies}
+            className="px-3 py-1.5 rounded-full ig-gradient-bg text-white font-extrabold text-xs shadow-xs flex items-center gap-1.5 shrink-0 hover:opacity-95 transition-all disabled:opacity-50"
+            title="Generate AI Smart Replies based on conversation context"
+          >
+            {loadingAiReplies ? (
+              <>
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                <span>Suggesting...</span>
+              </>
+            ) : (
+              <>
+                <Sparkles className="w-3.5 h-3.5 text-yellow-300 fill-current" />
+                <span>✨ AI Smart Replies</span>
+              </>
+            )}
+          </button>
+
+          {aiReplies.map((reply, idx) => (
+            <button
+              key={idx}
+              type="button"
+              onClick={() => setInputText(reply)}
+              className="px-3 py-1.5 rounded-full bg-white hover:bg-sky-50 border border-slate-200 hover:border-[#0095f6] text-slate-800 hover:text-[#0095f6] text-xs font-bold transition-all shrink-0 shadow-2xs flex items-center gap-1 active:scale-95"
+            >
+              <span>{reply}</span>
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Input Message Bar */}
