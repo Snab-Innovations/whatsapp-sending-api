@@ -8,6 +8,7 @@ import TaskKanban from './components/TaskKanban';
 import AIAnalyticsPage from './components/AIAnalyticsPage';
 import NewChatModal from './components/NewChatModal';
 import PasscodeLockModal from './components/PasscodeLockModal';
+import MobileBottomNav from './components/MobileBottomNav';
 import { getOrCreateSessionId, getSessionPasscode, clearSessionPasscode } from './utils/session';
 import {
   subscribeToEvents,
@@ -383,7 +384,7 @@ export default function App() {
         onLockSession={() => setClientState(prev => ({ ...prev, isLocked: true }))}
       />
 
-      <main className="flex-1 flex overflow-hidden relative">
+      <main className="flex-1 flex overflow-hidden relative pb-16 md:pb-0">
         {activeTab === 'DASHBOARD' && (
           <MainDashboard
             tasks={tasks}
@@ -398,22 +399,27 @@ export default function App() {
         )}
 
         {(activeTab === 'CHATS' || activeTab === 'WORKSPACE') && (
-          <>
-            <ChatList
-              chats={chats}
-              activeChatId={activeChat?.id}
-              onSelectChat={handleSelectChat}
-              onSyncChats={handleSyncChats}
-              loading={loadingChats}
-            />
+          <div className="flex-1 flex w-full h-full overflow-hidden">
+            <div className={`${activeChat ? 'hidden md:flex' : 'flex'} w-full md:w-80 lg:w-96 h-full shrink-0`}>
+              <ChatList
+                chats={chats}
+                activeChatId={activeChat?.id}
+                onSelectChat={handleSelectChat}
+                onSyncChats={handleSyncChats}
+                loading={loadingChats}
+              />
+            </div>
 
-            <ChatWindow
-              chat={activeChat}
-              messages={messages}
-              loadingMessages={loadingMessages}
-              onSendMessage={handleSendMessage}
-            />
-          </>
+            <div className={`${!activeChat ? 'hidden md:flex' : 'flex'} flex-1 h-full w-full`}>
+              <ChatWindow
+                chat={activeChat}
+                messages={messages}
+                loadingMessages={loadingMessages}
+                onSendMessage={handleSendMessage}
+                onBack={() => setActiveChat(null)}
+              />
+            </div>
+          </div>
         )}
 
         {activeTab === 'KANBAN' && (
@@ -433,6 +439,21 @@ export default function App() {
           />
         )}
       </main>
+
+      {/* Native Mobile App Bottom Navigation Bar */}
+      <MobileBottomNav
+        activeTab={activeTab}
+        setActiveTab={(tab) => {
+          setActiveTab(tab);
+          if (tab === 'CHATS') setActiveChat(null);
+        }}
+        unreadTotalCount={chats.reduce((acc, c) => acc + (c.unreadCount || 0), 0)}
+        pendingTasksCount={tasks.filter(t => t.status !== 'COMPLETED').length}
+        onOpenKeyModal={() => {
+          const keyBtn = document.querySelector('button[title="View & Copy Access PIN / Passcode"]');
+          if (keyBtn) keyBtn.click();
+        }}
+      />
 
       <NewChatModal
         isOpen={isNewChatModalOpen}

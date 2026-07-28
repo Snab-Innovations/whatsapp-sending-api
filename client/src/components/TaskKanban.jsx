@@ -23,6 +23,7 @@ import {
 export default function TaskKanban({ tasks = [], onUpdateTaskStatus, onDeleteTask, onJumpToChat }) {
   const [filterPriority, setFilterPriority] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
+  const [activeMobileCol, setActiveMobileCol] = useState('ALL');
 
   const filteredTasks = tasks.filter((task) => {
     const matchesPriority = filterPriority === 'ALL' || task.priority === filterPriority;
@@ -197,9 +198,42 @@ export default function TaskKanban({ tasks = [], onUpdateTaskStatus, onDeleteTas
         </div>
       </div>
 
+      {/* Mobile Column Tab Selector */}
+      <div className="md:hidden flex items-center gap-1.5 p-1 bg-slate-200/70 rounded-2xl mb-4 overflow-x-auto">
+        <button
+          onClick={() => setActiveMobileCol('ALL')}
+          className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-bold transition-all text-center shrink-0 ${
+            activeMobileCol === 'ALL'
+              ? 'bg-white text-slate-900 shadow-xs'
+              : 'text-slate-600 hover:text-slate-900'
+          }`}
+        >
+          All ({filteredTasks.length})
+        </button>
+        {columns.map(col => {
+          const count = filteredTasks.filter(t => (t.status || 'TO_DO') === col.id).length;
+          return (
+            <button
+              key={col.id}
+              onClick={() => setActiveMobileCol(col.id)}
+              className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-bold transition-all text-center shrink-0 ${
+                activeMobileCol === col.id
+                  ? 'bg-white text-slate-900 shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              {col.title} ({count})
+            </button>
+          );
+        })}
+      </div>
+
       {/* Kanban Board Columns - White Instagram Style */}
       <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-6 overflow-y-auto pr-1">
         {columns.map((col) => {
+          if (typeof window !== 'undefined' && window.innerWidth < 768 && activeMobileCol !== 'ALL' && activeMobileCol !== col.id) {
+            return null;
+          }
           const colTasks = filteredTasks.filter((t) => (t.status || 'TO_DO') === col.id);
           const ColIcon = col.icon;
 

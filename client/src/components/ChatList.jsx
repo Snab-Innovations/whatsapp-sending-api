@@ -51,7 +51,7 @@ export default function ChatList({ chats, activeChatId, onSelectChat, onSyncChat
   });
 
   return (
-    <div className="w-80 sm:w-96 bg-white border-r border-slate-200 flex flex-col h-full shrink-0 shadow-xs">
+    <div className="w-full md:w-80 lg:w-96 bg-white border-r border-slate-200 flex flex-col h-full shrink-0 shadow-xs">
       {/* Search Header - Instagram Direct Style */}
       <div className="p-4 bg-white border-b border-slate-200 space-y-3">
         <div className="flex items-center justify-between">

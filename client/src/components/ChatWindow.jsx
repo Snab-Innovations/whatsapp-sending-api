@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, User, Users, MessageSquare, Search, CheckCheck, Loader2, Sparkles, ShieldAlert, Zap, Clock, Calendar, AlertTriangle, Briefcase, CreditCard, CheckCircle2, Video, ExternalLink } from 'lucide-react';
+import { Send, User, Users, MessageSquare, Search, CheckCheck, Loader2, Sparkles, ShieldAlert, Zap, Clock, Calendar, AlertTriangle, Briefcase, CreditCard, CheckCircle2, Video, ExternalLink, ArrowLeft } from 'lucide-react';
 import { getAIReplySuggestions } from '../services/api';
 
-export default function ChatWindow({ chat, messages, loadingMessages, onSendMessage }) {
+export default function ChatWindow({ chat, messages, loadingMessages, onSendMessage, onBack }) {
   const [inputText, setInputText] = useState('');
   const [sending, setSending] = useState(false);
   const [aiReplies, setAiReplies] = useState([]);
@@ -171,8 +171,18 @@ export default function ChatWindow({ chat, messages, loadingMessages, onSendMess
   return (
     <div className="flex-1 flex flex-col h-full bg-[#fafafa] border-l border-slate-200 overflow-hidden">
       {/* Instagram Direct Header */}
-      <div className="h-16 bg-white border-b border-slate-200 px-4 sm:px-6 flex items-center justify-between shrink-0 shadow-xs z-10">
-        <div className="flex items-center gap-3 min-w-0">
+      <div className="h-16 bg-white border-b border-slate-200 px-3 sm:px-6 flex items-center justify-between shrink-0 shadow-xs z-10">
+        <div className="flex items-center gap-2.5 min-w-0">
+          {onBack && (
+            <button
+              onClick={onBack}
+              className="md:hidden p-2 -ml-1 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-all flex items-center justify-center shrink-0 cursor-pointer active:scale-95"
+              title="Back to Chat List"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+          )}
+
           {/* Instagram Story Gradient Ring Avatar */}
           <div className="p-[2px] rounded-full ig-gradient-bg shadow-xs shrink-0">
             <div className="w-9 h-9 rounded-full bg-white flex items-center justify-center font-black text-xs text-slate-800">
