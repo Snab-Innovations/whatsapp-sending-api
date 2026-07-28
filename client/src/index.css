@@ -1,0 +1,28 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer utilities {
+  /* Custom scrollbars */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #374248;
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #4a575d;
+  }
+}
+
+/* Background wallpaper matrix pattern */
+.chat-pattern {
+  background-color: #0b141a;
+  background-image: radial-gradient(#1f2c34 1px, transparent 1px);
+  background-size: 20px 20px;
+}

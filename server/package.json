@@ -1,0 +1,19 @@
+{
+  "name": "whatsapp-baileys-server",
+  "version": "1.0.0",
+  "description": "Lightweight WhatsApp Node.js backend using Baileys WebSockets with Gemini AI Message Analysis & Task Planner",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.14.1",
+    "@whiskeysockets/baileys": "^6.7.12",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "pino": "^8.20.0",
+    "qrcode": "^1.5.3"
+  }
+}

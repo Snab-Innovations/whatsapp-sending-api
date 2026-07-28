@@ -1,0 +1,45 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Environment variables & Secrets
+.env
+.env.*
+!.env.example
+*.pem
+
+# WhatsApp Web & Baileys Auth Session Data
+.wwebjs_auth/
+.wwebjs_cache/
+baileys_auth_info/
+**/.wwebjs_auth/
+**/.wwebjs_cache/
+**/baileys_auth_info/
+*.session
+session-*/
+
+# Build & Output
+dist/
+**/dist/
+build/
+out/
+
+# Logs & Debugging
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Editor & OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
