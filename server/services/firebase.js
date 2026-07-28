@@ -13,14 +13,16 @@ const {
 
 require('dotenv').config();
 
+const FIREBASE_PROJECT_ID = "whatsapp-manager-51344";
+
 const firebaseConfig = {
-  apiKey: process.env.FIREBASE_API_KEY || "AIzaSyDLkvxN8tJwQeXx92pKOanznE-gmtcDsf4",
-  authDomain: process.env.FIREBASE_AUTH_DOMAIN || "whatsapp-manager-51344.firebaseapp.com",
-  projectId: process.env.FIREBASE_PROJECT_ID || "whatsapp-manager-51344",
-  storageBucket: process.env.FIREBASE_STORAGE_BUCKET || "whatsapp-manager-51344.firebasestorage.app",
-  messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID || "1032170059077",
-  appId: process.env.FIREBASE_APP_ID || "1:1032170059077:web:41ef65550d83ce6eaffa2c",
-  measurementId: process.env.FIREBASE_MEASUREMENT_ID || "G-YMED0S4RQQ"
+  apiKey: process.env.FIREBASE_API_KEY && !process.env.FIREBASE_API_KEY.includes('findyourself') ? process.env.FIREBASE_API_KEY : "AIzaSyDLkvxN8tJwQeXx92pKOanznE-gmtcDsf4",
+  authDomain: `${FIREBASE_PROJECT_ID}.firebaseapp.com`,
+  projectId: FIREBASE_PROJECT_ID,
+  storageBucket: `${FIREBASE_PROJECT_ID}.firebasestorage.app`,
+  messagingSenderId: "1032170059077",
+  appId: "1:1032170059077:web:41ef65550d83ce6eaffa2c",
+  measurementId: "G-YMED0S4RQQ"
 };
 
 let app = null;
@@ -29,7 +31,7 @@ let db = null;
 try {
   app = initializeApp(firebaseConfig);
   db = getFirestore(app);
-  console.log(`[Firebase ➔ Firestore ⚡] Initialized Cloud Firestore DB for project: ${firebaseConfig.projectId}`);
+  console.log(`[Firebase ➔ Firestore ⚡] Initialized Cloud Firestore DB for project: ${FIREBASE_PROJECT_ID}`);
 } catch (err) {
   console.error('[Firebase ➔ Firestore] Initialization error:', err.message);
 }
