@@ -35,16 +35,38 @@ try {
 }
 
 /**
+ * Recursively cleans an object for Firestore by replacing `undefined` with `null`
+ */
+function cleanForFirestore(obj) {
+  if (obj === null || obj === undefined) return null;
+  if (typeof obj !== 'object') return obj;
+  if (Array.isArray(obj)) return obj.map(cleanForFirestore);
+
+  const cleaned = {};
+  for (const [key, value] of Object.entries(obj)) {
+    if (value === undefined) {
+      cleaned[key] = null;
+    } else if (value !== null && typeof value === 'object') {
+      cleaned[key] = cleanForFirestore(value);
+    } else {
+      cleaned[key] = value;
+    }
+  }
+  return cleaned;
+}
+
+/**
  * Syncs / updates a task in Cloud Firestore collection "tasks"
  */
 async function syncTaskToFirestore(task) {
   if (!db || !task || !task.id) return;
   try {
     const taskRef = doc(db, 'tasks', String(task.id));
-    await setDoc(taskRef, {
+    const cleanedPayload = cleanForFirestore({
       ...task,
       syncedAt: new Date().toISOString()
-    }, { merge: true });
+    });
+    await setDoc(taskRef, cleanedPayload, { merge: true });
     console.log(`[Firebase ➔ Firestore 💾] Synced Task "${task.id}" to Cloud Firestore.`);
   } catch (err) {
     console.error(`[Firebase ➔ Firestore] Error syncing task ${task.id}:`, err.message);
@@ -73,10 +95,11 @@ async function syncChatToFirestore(chat) {
   try {
     const safeId = String(chat.id).replace(/\//g, '_');
     const chatRef = doc(db, 'chats', safeId);
-    await setDoc(chatRef, {
+    const cleanedPayload = cleanForFirestore({
       ...chat,
       syncedAt: new Date().toISOString()
-    }, { merge: true });
+    });
+    await setDoc(chatRef, cleanedPayload, { merge: true });
   } catch (err) {
     console.error(`[Firebase ➔ Firestore] Error syncing chat ${chat.id}:`, err.message);
   }
@@ -90,10 +113,11 @@ async function syncMessageToFirestore(chatId, message) {
   try {
     const safeChatId = String(chatId).replace(/\//g, '_');
     const msgRef = doc(db, 'chats', safeChatId, 'messages', String(message.id));
-    await setDoc(msgRef, {
+    const cleanedPayload = cleanForFirestore({
       ...message,
       syncedAt: new Date().toISOString()
-    }, { merge: true });
+    });
+    await setDoc(msgRef, cleanedPayload, { merge: true });
   } catch (err) {
     console.error(`[Firebase ➔ Firestore] Error syncing message ${message.id}:`, err.message);
   }
@@ -141,6 +165,7 @@ async function loadChatsFromFirestore() {
 
 module.exports = {
   db,
+  cleanForFirestore,
   syncTaskToFirestore,
   deleteTaskFromFirestore,
   syncChatToFirestore,
