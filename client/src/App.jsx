@@ -116,10 +116,26 @@ export default function App() {
     if (clientState.status === 'READY') {
       fetchChats();
       fetchTasks();
-      const timer = setTimeout(() => {
+      
+      // Auto-sync polling every 4 seconds to guarantee zero missed messages in Direct Messages
+      const pollInterval = setInterval(() => {
         fetchChats();
         fetchTasks();
-      }, 3000);
+        if (activeChatRef.current) {
+          getChatMessages(activeChatRef.current.id, 100)
+            .then((res) => {
+              if (res && Array.isArray(res.messages)) {
+                setMessages((prev) => {
+                  if (res.messages.length !== prev.length || (res.messages.length > 0 && prev.length > 0 && res.messages[res.messages.length - 1].id !== prev[prev.length - 1].id)) {
+                    return res.messages;
+                  }
+                  return prev;
+                });
+              }
+            })
+            .catch(() => null);
+        }
+      }, 4000);
 
       const handleVisibilityChange = () => {
         if (document.visibilityState === 'visible') {
@@ -130,7 +146,7 @@ export default function App() {
       window.addEventListener('visibilitychange', handleVisibilityChange);
 
       return () => {
-        clearTimeout(timer);
+        clearInterval(pollInterval);
         window.removeEventListener('visibilitychange', handleVisibilityChange);
       };
     } else {
