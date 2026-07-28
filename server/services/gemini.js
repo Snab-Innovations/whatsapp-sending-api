@@ -5,7 +5,7 @@ const apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY || 
 let genAI = null;
 let model = null;
 
-if (apiKey) {
+if (apiKey && !apiKey.includes('YOUR_')) {
   try {
     genAI = new GoogleGenerativeAI(apiKey);
     model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
@@ -14,7 +14,7 @@ if (apiKey) {
     console.warn('[Gemini AI] Initialization error:', err.message);
   }
 } else {
-  console.warn('[Gemini AI] Warning: GEMINI_API_KEY is not set. Heuristic fallback analyzer active.');
+  console.warn('[Gemini AI] Warning: GEMINI_API_KEY is not set or invalid. Heuristic fallback analyzer active.');
 }
 
 /**
@@ -33,8 +33,8 @@ You are an expert AI executive productivity assistant analyzing a WhatsApp messa
 Analyze the message and extract task details, priority, due date, category, sentiment, and an explicit AI Verdict / Detailed Decision.
 
 CRITICAL TASK EXTRACTION & CASUAL GREETINGS RULES:
-1. MESSAGES CONTAINING ONLY GREETINGS, PLEASANTRIES, OR CASUAL CONVERSATION (e.g. 'good morning', 'good evening', 'hi', 'hello', 'how are you', 'thank you', 'okay', 'bye', 'kay krte', 'kya kar rahe ho') ARE NOT TASKS!
-   - You MUST set "hasTask": false, "taskTitle": null, and "verdict": null for all casual greetings!
+1. MESSAGES CONTAINING ONLY GREETINGS, PLEASANTRIES, AFFECTION, OR CASUAL CONVERSATION (e.g. 'good morning', 'good evening', 'hi', 'hello', 'how are you', 'thank you', 'okay', 'bye', 'kay krte', 'kya kar rahe ho', 'love you') ARE NOT TASKS!
+   - You MUST set "hasTask": false, "taskTitle": null, and "verdict": null for all casual greetings & personal messages!
 2. ANY message mentioning an INTERVIEW, JOB OPPORTUNITY, INTERVIEW LOCATION/VENUE (e.g. NEC, Nashik, SNAB Innovation), MEETING, APPOINTMENT, DEADLINE, PAYMENT, or URGENT ASSIGNMENT MUST BE CLASSIFIED AS:
    - "hasTask": true
    - "priority": "HIGH"
@@ -57,13 +57,13 @@ Respond ONLY with a valid JSON object matching this exact schema (no markdown fe
 }`;
 
       let result;
-      const candidateModels = ['gemini-1.5-flash-latest', 'gemini-1.5-flash', 'gemini-1.5-pro-latest', 'gemini-pro'];
+      const candidateModels = ['gemini-1.5-flash', 'gemini-1.5-flash-latest', 'gemini-1.5-pro'];
       let lastErr = null;
 
       for (const mName of candidateModels) {
         try {
-          model = genAI.getGenerativeModel({ model: mName });
-          result = await model.generateContent(prompt);
+          const m = genAI.getGenerativeModel({ model: mName });
+          result = await m.generateContent(prompt);
           if (result) break;
         } catch (e) {
           lastErr = e;
@@ -89,10 +89,14 @@ Respond ONLY with a valid JSON object matching this exact schema (no markdown fe
  * Enhanced heuristic smart reply fallback generator matching exact language & chat context
  */
 function generateContextualReplies(messages = [], contactName = 'Contact') {
+  const cleanName = contactName && contactName !== 'Contact' && !contactName.includes('@') && !/^\+?\d+$/.test(contactName)
+    ? contactName
+    : '';
+
   if (!messages || messages.length === 0) {
     return [
-      `Hello ${contactName}! How can I help you today?`,
-      `Hi ${contactName}! Let me know if you need anything.`,
+      `Hello ${cleanName ? cleanName : ''}! How can I help you today?`.trim(),
+      `Hi! Let me know if you need anything.`,
       `Hey! Following up on our chat.`
     ];
   }
@@ -101,16 +105,58 @@ function generateContextualReplies(messages = [], contactName = 'Contact') {
   const lastMsgText = (lastMsgObj ? lastMsgObj.body || '' : '').trim();
   const lower = lastMsgText.toLowerCase();
 
-  // 1. Meeting / Google Meet / Zoom Links
+  // 1. Affection / Love / Emotional messages ("Love you 😘", "love u", "I love you", emojis)
+  if (lower.includes('love you') || lower.includes('love u') || lower.includes('loveyou') || lower.includes('i love u') || lower.includes('❤️') || lower.includes('😘') || lower.includes('🥰')) {
+    return [
+      `Love you too! ❤️😘`,
+      `Love you so much! 🥰`,
+      `Aww, love you! ❤️`
+    ];
+  }
+
+  // 2. Greetings with "Sir" / Formal greetings ("Good morning sir", "Good morning", "GM sir")
+  if (lower.includes('good morning') || lower.includes('gm')) {
+    if (lower.includes('sir')) {
+      return [
+        `Good morning! How can I help you today?`,
+        `Good morning sir! Have a great day ahead.`,
+        `Morning sir! Any updates for today?`
+      ];
+    }
+    return [
+      `Good morning ${cleanName}! Have a great day ahead ☀️`.trim(),
+      `Good morning! How are you doing today?`,
+      `Morning! Hope all is going well.`
+    ];
+  }
+
+  if (lower.includes('good evening') || lower.includes('good night') || lower.includes('gn')) {
+    return [
+      `Good evening ${cleanName}!`.trim(),
+      `Good night! Take care and sleep well 🌙`,
+      `Sweet dreams! Talk tomorrow.`
+    ];
+  }
+
+  // 3. Short greetings ("hii", "hello", "heyy", "hey")
+  if (/^(hi+|hello+|hey+|hie+)[!.,\s]*$/i.test(lower)) {
+    return [
+      `Hii ${cleanName}! How are you?`.trim(),
+      `Hey! What's up?`,
+      `Hii! Bol na, kya update hai?`
+    ];
+  }
+
+  // 4. Meeting / Google Meet / Zoom Links
   if (lower.includes('meet.google.com') || lower.includes('zoom.us') || lower.includes('teams.microsoft')) {
     return [
-      `Joining the meeting link right now!`,
+      `Joining the meeting link right now! 📹`,
       `Got the link, joining in 2 minutes!`,
       `Thanks! I am ready for the call.`
     ];
   }
 
-  // 2. Interview / Schedule / Location / Venue
+  // 5. Interview / Schedule / Location / Venue
   if (lower.includes('interview') || lower.includes('snab') || lower.includes('venue') || lower.includes('location') || lower.includes('schedule') || lower.includes('nec') || lower.includes('nashik')) {
     return [
       `Confirmed! I will attend the interview on time at the venue.`,
@@ -119,34 +165,26 @@ function generateContextualReplies(messages = [], contactName = 'Contact') {
     ];
   }
 
-  // 3. Marathi Casual Chat ("kay krte", "kasa ahes", "kay chalalay")
+  // 6. Marathi Casual Chat ("kay krte", "kay karta", "kasa ahes")
   if (lower.includes('kay krte') || lower.includes('kay karta') || lower.includes('kay krto') || lower.includes('kasa ahes') || lower.includes('kasi ahes') || lower.includes('kay chalalay')) {
     return [
       `Kahi nahi, bas kaam karat ahe. Tu sang?`,
-      `Mast chalalay! Tu kay kartoy/kartey?`,
+      `Mast chalalay! Tu kay kartey?`,
       `Busy in work right now. Bol na!`
     ];
   }
 
-  // 4. Hinglish Casual Chat ("kya kar rahe ho", "kya kr rhe ho", "kya chal raha hai", "kya scene hai")
+  // 7. Hinglish Casual Chat ("kya kar rahe ho", "kya kr rhe ho", "kya chal raha hai")
   if (lower.includes('kya kar rahe') || lower.includes('kya kr rhe') || lower.includes('kya chal raha') || lower.includes('kya bolte')) {
     return [
-      `Kuch nahi, bas office work handle kar raha hu. Tum batao?`,
+      `Kuch nahi, bas work handle kar raha hu. Tum batao?`,
       `Bas badhiya! Tum batao kya scene hai?`,
       `Working on tasks right now. Bol kya update hai?`
     ];
   }
 
-  // 5. English Casual Greetings ("good morning", "hi", "hello", "how are you")
-  if (/^(good\s*(morning|afternoon|evening|night)|hi+|hello+|hey+)[!.,\s]*$/i.test(lower)) {
-    return [
-      `Good morning ${contactName}! Hope you have a productive day ahead.`,
-      `Hello ${contactName}! How can I help you today?`,
-      `Hey! Hope all is going well.`
-    ];
-  }
-
-  if (lower.includes('how are you') || lower.includes('hru') || lower.includes('wbu')) {
+  // 8. How are you / HRU
+  if (lower.includes('how are you') || lower.includes('hru') || lower.includes('wbu') || lower.includes('wby')) {
     return [
       `I am doing great, thanks for asking! How are you doing?`,
       `Doing good! How is everything on your side?`,
@@ -154,7 +192,7 @@ function generateContextualReplies(messages = [], contactName = 'Contact') {
     ];
   }
 
-  // 6. Payment / Financial Messages
+  // 9. Payment / Financial Messages
   if (lower.includes('payment') || lower.includes('bill') || lower.includes('invoice') || lower.includes('money') || lower.includes('pay')) {
     return [
       `Received the payment details. Will process it shortly!`,
@@ -163,20 +201,20 @@ function generateContextualReplies(messages = [], contactName = 'Contact') {
     ];
   }
 
-  // 7. Tasks / Submissions / Reports
-  if (lower.includes('submit') || lower.includes('report') || lower.includes('project') || lower.includes('task') || lower.includes('document') || lower.includes('send')) {
+  // 10. Tasks / Submissions / Reports / News / Official updates
+  if (lower.includes('submit') || lower.includes('report') || lower.includes('project') || lower.includes('task') || lower.includes('document') || lower.includes('send') || lower.includes('cap round') || lower.includes('dse')) {
     return [
       `Working on this right now. Will share the update soon!`,
-      `I will review and send the documents shortly.`,
-      `Got it! Will get this done today.`
+      `I will review and send the documents/update shortly.`,
+      `Got the update! Thank you for sharing.`
     ];
   }
 
-  // 8. General Contextual Fallbacks
+  // 11. Personalized default replies (avoiding generic "Thanks for the update, Prapti Patil!")
   return [
-    `Thanks for the update, ${contactName}! I'll get back to you right away.`,
-    `Got it! Let me check and confirm shortly.`,
-    `Sounds good! Will follow up on this.`
+    `Got it! Let me check and get back to you.`,
+    `Sounds good! Will follow up on this shortly.`,
+    `Sure! Will update you in a bit.`
   ];
 }
 
@@ -198,8 +236,9 @@ Analyze the conversation context below with ${contactName} and suggest 3 highly 
 
 RULES:
 1. Matches the tone, language (English, Hinglish, Marathi, Hindi), and topic of the conversation!
-2. If the last message is a greeting (e.g. 'kay krte', 'good morning', 'kya kar rahe ho'), reply appropriately in that exact language/vibe.
-3. If the last message is about a meeting, schedule, venue, or link, provide direct actionable responses (e.g. 'I will attend on time', 'Joining link now').
+2. If the last message is an expression of affection (e.g. 'Love you 😘'), suggest warm responses like 'Love you too! ❤️😘'.
+3. If the last message is a greeting (e.g. 'kay krte', 'Good morning sir', 'kya kar rahe ho'), reply appropriately in that exact language/vibe.
+4. If the last message is about a meeting, schedule, venue, or link, provide direct actionable responses (e.g. 'I will attend on time', 'Joining link now').
 
 Recent Chat History:
 ${recentContext}
@@ -207,7 +246,7 @@ ${recentContext}
 Respond ONLY with a valid JSON array of 3 strings (no markdown, no extra text):
 ["Response 1...", "Response 2...", "Response 3..."]`;
 
-    const candidateModels = ['gemini-1.5-flash-latest', 'gemini-1.5-flash', 'gemini-1.5-pro-latest', 'gemini-pro'];
+    const candidateModels = ['gemini-1.5-flash', 'gemini-1.5-flash-latest', 'gemini-1.5-pro'];
     let result;
 
     for (const mName of candidateModels) {
@@ -216,7 +255,7 @@ Respond ONLY with a valid JSON array of 3 strings (no markdown, no extra text):
         result = await m.generateContent(prompt);
         if (result) break;
       } catch (e) {
-        // try next model candidate
+        // try next model
       }
     }
 
@@ -246,7 +285,7 @@ async function batchAnalyzeAllMessages(chatsMap, messagesMap, tasksMap) {
   // Purge any existing casual greeting tasks from tasksMap
   for (const [id, t] of tasksMap.entries()) {
     const lowerMsg = (t.originalMessage || t.title || '').toLowerCase().trim();
-    const isCasualGreeting = /^(good\s*(morning|afternoon|evening|night)|hi+|hello+|hey+|gm|gn|hie|heyy+|how\s*are\s*you|thanks|thank\s*you|ok|okay|k|cool|great|nice|bye|take\s*care|tc|welcome|kay\s*(krte|karta|krto|chalel|karte|chalalay)|kya\s*(kar\s*rahe\s*ho|kr\s*rhe\s*ho|krte|kar\s*raha\s*h|bolte|chal\s*raha\s*hai)|whats\s*up|what's\s*up|sup|wbu|wby|hru|i\s*love\s*you)[!.,\s\u1f600-\u1f64f\u1f300-\u1f5ff\u1f680-\u1f6ff\u2600-\u26ff]*$/i.test(lowerMsg);
+    const isCasualGreeting = /^(good\s*(morning|afternoon|evening|night)|hi+|hello+|hey+|gm|gn|hie|heyy+|how\s*are\s*you|thanks|thank\s*you|ok|okay|k|cool|great|nice|bye|take\s*care|tc|welcome|kay\s*(krte|karta|krto|chalel|karte|chalalay)|kya\s*(kar\s*rahe\s*ho|kr\s*rhe\s*ho|krte|kar\s*raha\s*h|bolte|chal\s*raha\s*hai)|whats\s*up|what's\s*up|sup|wbu|wby|hru|i\s*love\s*you|love\s*you)[!.,\s\u1f600-\u1f64f\u1f300-\u1f5ff\u1f680-\u1f6ff\u2600-\u26ff]*$/i.test(lowerMsg);
     if (isCasualGreeting) {
       tasksMap.delete(id);
     }
@@ -265,7 +304,7 @@ async function batchAnalyzeAllMessages(chatsMap, messagesMap, tasksMap) {
       analyzedCount++;
 
       const textLower = msg.body.toLowerCase().trim();
-      const isCasualGreeting = /^(good\s*(morning|afternoon|evening|night)|hi+|hello+|hey+|gm|gn|hie|heyy+|how\s*are\s*you|thanks|thank\s*you|ok|okay|k|cool|great|nice|bye|take\s*care|tc|welcome|kay\s*(krte|karta|krto|chalel|karte|chalalay)|kya\s*(kar\s*rahe\s*ho|kr\s*rhe\s*ho|krte|kar\s*raha\s*h|bolte|chal\s*raha\s*hai)|whats\s*up|what's\s*up|sup|wbu|wby|hru|i\s*love\s*you)[!.,\s\u1f600-\u1f64f\u1f300-\u1f5ff\u1f680-\u1f6ff\u2600-\u26ff]*$/i.test(textLower);
+      const isCasualGreeting = /^(good\s*(morning|afternoon|evening|night)|hi+|hello+|hey+|gm|gn|hie|heyy+|how\s*are\s*you|thanks|thank\s*you|ok|okay|k|cool|great|nice|bye|take\s*care|tc|welcome|kay\s*(krte|karta|krto|chalel|karte|chalalay)|kya\s*(kar\s*rahe\s*ho|kr\s*rhe\s*ho|krte|kar\s*raha\s*h|bolte|chal\s*raha\s*hai)|whats\s*up|what's\s*up|sup|wbu|wby|hru|i\s*love\s*you|love\s*you)[!.,\s\u1f600-\u1f64f\u1f300-\u1f5ff\u1f680-\u1f6ff\u2600-\u26ff]*$/i.test(textLower);
 
       if (isCasualGreeting) {
         msg.aiAnalysis = {
@@ -273,7 +312,7 @@ async function batchAnalyzeAllMessages(chatsMap, messagesMap, tasksMap) {
           taskTitle: null,
           priority: 'LOW',
           category: 'General',
-          summary: 'Conversational greeting',
+          summary: 'Conversational message',
           verdict: null
         };
         continue;
@@ -369,7 +408,7 @@ function fallbackAnalyze(text) {
   const lower = text.toLowerCase().trim();
 
   // 1. Casual Greetings & Pleasantries Filter
-  const isCasualGreeting = /^(good\s*(morning|afternoon|evening|night)|hi+|hello+|hey+|gm|gn|hie|heyy+|how\s*are\s*you|thanks|thank\s*you|ok|okay|k|cool|great|nice|bye|take\s*care|tc|welcome|kay\s*(krte|karta|krto|chalel|karte|chalalay)|kya\s*(kar\s*rahe\s*ho|kr\s*rhe\s*ho|krte|kar\s*raha\s*h|bolte|chal\s*raha\s*hai)|whats\s*up|what's\s*up|sup|wbu|wby|hru|i\s*love\s*you)[!.,\s\u1f600-\u1f64f\u1f300-\u1f5ff\u1f680-\u1f6ff\u2600-\u26ff]*$/i.test(lower);
+  const isCasualGreeting = /^(good\s*(morning|afternoon|evening|night)|hi+|hello+|hey+|gm|gn|hie|heyy+|how\s*are\s*you|thanks|thank\s*you|ok|okay|k|cool|great|nice|bye|take\s*care|tc|welcome|kay\s*(krte|karta|krto|chalel|karte|chalalay)|kya\s*(kar\s*rahe\s*ho|kr\s*rhe\s*ho|krte|kar\s*raha\s*h|bolte|chal\s*raha\s*hai)|whats\s*up|what's\s*up|sup|wbu|wby|hru|i\s*love\s*you|love\s*you)[!.,\s\u1f600-\u1f64f\u1f300-\u1f5ff\u1f680-\u1f6ff\u2600-\u26ff]*$/i.test(lower);
   
   if (isCasualGreeting) {
     return {
@@ -379,7 +418,7 @@ function fallbackAnalyze(text) {
       category: 'General',
       dueDate: null,
       sentiment: 'Positive',
-      summary: 'Conversational greeting',
+      summary: 'Conversational message',
       verdict: null
     };
   }
