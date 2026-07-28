@@ -11,6 +11,7 @@ const { analyzeMessage, generateSmartReplies, batchAnalyzeAllMessages } = requir
 const {
   default: makeWASocket,
   useMultiFileAuthState,
+  makeCacheableSignalKeyStore,
   DisconnectReason,
   fetchLatestBaileysVersion,
   jidNormalizedUser
@@ -170,9 +171,25 @@ async function initBaileysSocket() {
     version,
     logger,
     printQRInTerminal: false,
-    auth: state,
+    auth: {
+      creds: state.creds,
+      keys: makeCacheableSignalKeyStore(state.keys, logger)
+    },
+    getMessage: async (key) => {
+      if (!key || !key.remoteJid || !key.id) return undefined;
+      try {
+        const remoteJid = jidNormalizedUser(key.remoteJid);
+        const chatMsgs = messagesMap.get(remoteJid) || [];
+        const msgObj = chatMsgs.find(m => m.id === key.id);
+        if (msgObj && msgObj.body) {
+          return { conversation: msgObj.body };
+        }
+      } catch (e) {}
+      return undefined;
+    },
     generateHighQualityLinkPreview: true,
     syncFullHistory: true,
+    markOnlineOnConnect: true,
     connectTimeoutMs: 60000,
     keepAliveIntervalMs: 25000
   });
