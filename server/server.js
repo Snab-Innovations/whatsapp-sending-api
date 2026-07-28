@@ -41,6 +41,79 @@ const messagesMap = new Map(); // jid -> messageArray
 const tasksMap = new Map(); // taskId -> taskObj
 let sseClients = [];
 
+const STORE_PATH = path.join(__dirname, 'data', 'store.json');
+
+function loadStoreFromDisk() {
+  try {
+    if (fs.existsSync(STORE_PATH)) {
+      const raw = fs.readFileSync(STORE_PATH, 'utf-8');
+      const data = JSON.parse(raw);
+      if (Array.isArray(data.chats)) {
+        data.chats.forEach(c => {
+          if (c && c.id) chatsMap.set(c.id, c);
+        });
+      }
+      if (data.messages && typeof data.messages === 'object') {
+        Object.entries(data.messages).forEach(([jid, msgs]) => {
+          if (Array.isArray(msgs)) messagesMap.set(jid, msgs);
+        });
+      }
+      if (Array.isArray(data.tasks)) {
+        data.tasks.forEach(t => {
+          if (t && t.id) tasksMap.set(t.id, t);
+        });
+      }
+      console.log(`[Store 💾] Loaded persistent state from disk: ${chatsMap.size} chats, ${messagesMap.size} message threads, ${tasksMap.size} tasks.`);
+    }
+  } catch (err) {
+    console.error('[Store 💾] Error loading store from disk:', err.message);
+  }
+}
+
+let saveDebounceTimer = null;
+function saveStoreToDisk() {
+  if (saveDebounceTimer) clearTimeout(saveDebounceTimer);
+  saveDebounceTimer = setTimeout(() => {
+    try {
+      const dataDir = path.join(__dirname, 'data');
+      if (!fs.existsSync(dataDir)) {
+        fs.mkdirSync(dataDir, { recursive: true });
+      }
+      const chats = Array.from(chatsMap.values());
+      const messagesObj = {};
+      for (const [jid, msgs] of messagesMap.entries()) {
+        messagesObj[jid] = msgs.slice(-300);
+      }
+      const tasks = Array.from(tasksMap.values());
+      fs.writeFileSync(STORE_PATH, JSON.stringify({ chats, messages: messagesObj, tasks }, null, 2));
+    } catch (err) {
+      console.error('[Store 💾] Error saving store to disk:', err.message);
+    }
+  }, 500);
+}
+
+// Load persisted state immediately on server boot
+loadStoreFromDisk();
+
+async function runBackgroundHistoricalAnalysis() {
+  console.log('[Background AI 🤖] Running background historical message & task analysis across all chats...');
+  try {
+    const report = await batchAnalyzeAllMessages(chatsMap, messagesMap, tasksMap);
+    saveStoreToDisk();
+    console.log(`[Background AI 🤖] Analysis complete! Extracted ${report.newTasksExtracted} new tasks. Total active tasks: ${tasksMap.size}`);
+
+    const tasksArray = Array.from(tasksMap.values());
+    const ssePayload = `data: ${JSON.stringify({
+      eventType: 'BULK_ANALYSIS_COMPLETE',
+      tasksCount: tasksArray.length,
+      report
+    })}\n\n`;
+    sseClients.forEach(res => res.write(ssePayload));
+  } catch (err) {
+    console.error('[Background AI 🤖] Historical background analysis error:', err.message);
+  }
+}
+
 function broadcastState() {
   clientState.lastUpdated = new Date().toISOString();
   const payload = `data: ${JSON.stringify({ eventType: 'STATE_UPDATE', ...clientState })}\n\n`;
@@ -144,6 +217,10 @@ async function initBaileysSocket() {
         },
         qrCodeDataUrl: null
       });
+
+      saveStoreToDisk();
+      // Trigger background historical analysis automatically when WhatsApp becomes ready
+      setTimeout(() => runBackgroundHistoricalAnalysis(), 3000);
     }
 
     if (connection === 'close') {
@@ -241,6 +318,7 @@ async function initBaileysSocket() {
     }
 
     broadcastState();
+    saveStoreToDisk();
     // Automatically launch silent background historical analysis worker
     setTimeout(() => runBackgroundHistoricalAnalysis(), 2000);
   });
@@ -352,6 +430,7 @@ async function initBaileysSocket() {
       };
 
       chatsMap.set(remoteJid, updatedChat);
+      saveStoreToDisk();
 
       console.log(`[Baileys SSE] 📩 New message for ${remoteJid}: "${body}"`);
 
@@ -380,6 +459,7 @@ async function initBaileysSocket() {
         timestamp: c.conversationTimestamp ? Number(c.conversationTimestamp) : (existing.timestamp || 0)
       });
     }
+    saveStoreToDisk();
   });
 }
 
@@ -529,6 +609,7 @@ app.post('/api/messages/send', async (req, res) => {
       fromMe: true
     };
     chatsMap.set(targetJid, updatedChat);
+    saveStoreToDisk();
 
     res.json({
       success: true,
@@ -572,6 +653,7 @@ app.post('/api/tasks', (req, res) => {
   };
 
   tasksMap.set(taskId, newTask);
+  saveStoreToDisk();
   res.json({ success: true, task: newTask });
 });
 
@@ -587,6 +669,7 @@ app.patch('/api/tasks/:id', (req, res) => {
   if (priority) task.priority = priority;
 
   tasksMap.set(id, task);
+  saveStoreToDisk();
   res.json({ success: true, task });
 });
 
@@ -594,6 +677,7 @@ app.patch('/api/tasks/:id', (req, res) => {
 app.delete('/api/tasks/:id', (req, res) => {
   const { id } = req.params;
   tasksMap.delete(id);
+  saveStoreToDisk();
   res.json({ success: true, id });
 });
 
@@ -623,6 +707,9 @@ app.post('/api/logout', async (req, res) => {
     chatsMap.clear();
     messagesMap.clear();
     tasksMap.clear();
+    if (fs.existsSync(STORE_PATH)) {
+      fs.rmSync(STORE_PATH, { force: true });
+    }
 
     console.log('[Baileys] Auth info cleared. Restarting connection...');
     initBaileysSocket();

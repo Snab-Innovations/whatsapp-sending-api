@@ -109,7 +109,7 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  // Fetch chats and tasks when status changes to READY
+  // Fetch chats and tasks when status changes to READY or when tab/window comes into view
   useEffect(() => {
     if (clientState.status === 'READY') {
       fetchChats();
@@ -118,7 +118,19 @@ export default function App() {
         fetchChats();
         fetchTasks();
       }, 3000);
-      return () => clearTimeout(timer);
+
+      const handleVisibilityChange = () => {
+        if (document.visibilityState === 'visible') {
+          fetchChats();
+          fetchTasks();
+        }
+      };
+      window.addEventListener('visibilitychange', handleVisibilityChange);
+
+      return () => {
+        clearTimeout(timer);
+        window.removeEventListener('visibilitychange', handleVisibilityChange);
+      };
     } else {
       setChats([]);
       setActiveChat(null);
@@ -126,6 +138,14 @@ export default function App() {
       setTasks([]);
     }
   }, [clientState.status]);
+
+  // Sync chats and tasks whenever activeTab changes
+  useEffect(() => {
+    if (clientState.status === 'READY') {
+      fetchChats();
+      fetchTasks();
+    }
+  }, [activeTab]);
 
   const fetchChats = async () => {
     try {

@@ -8,10 +8,12 @@ node_modules/
 !.env.example
 *.pem
 
-# WhatsApp Web & Baileys Auth Session Data
+# WhatsApp Web & Baileys Auth Session & Local Store Data
 .wwebjs_auth/
 .wwebjs_cache/
 baileys_auth_info/
+server/data/
+**/server/data/
 **/.wwebjs_auth/
 **/.wwebjs_cache/
 **/baileys_auth_info/
