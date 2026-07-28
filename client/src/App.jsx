@@ -7,7 +7,7 @@ import ChatWindow from './components/ChatWindow';
 import TaskKanban from './components/TaskKanban';
 import AIAnalyticsPage from './components/AIAnalyticsPage';
 import NewChatModal from './components/NewChatModal';
-import PasscodeLockModal from './components/PasscodeLockModal';
+import AuthModal from './components/AuthModal';
 import MobileBottomNav from './components/MobileBottomNav';
 import { getOrCreateSessionId, getSessionPasscode, clearSessionPasscode } from './utils/session';
 import {
@@ -461,16 +461,13 @@ export default function App() {
         onSendDirectMessage={handleSendDirectMessage}
       />
 
-      {isLocked ? (
-        <PasscodeLockModal
-          sessionId={currentSessionId}
-          onUnlocked={handleUnlocked}
-        />
-      ) : isModalOpen && (
-        <QRModal
+      {(isLocked || isModalOpen) && (
+        <AuthModal
           clientState={clientState}
           onRestart={handleRestart}
           onResetSession={handleLogout}
+          sessionId={currentSessionId}
+          onUnlocked={handleUnlocked}
         />
       )}
     </div>
