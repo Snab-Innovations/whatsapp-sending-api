@@ -32,6 +32,11 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
+// Render Keep-Alive / Health Endpoint
+app.get('/ping', (req, res) => {
+  res.status(200).json({ status: 'ok', timestamp: new Date().toISOString(), message: 'Server keep-alive active' });
+});
+
 // Logger
 const logger = pino({ level: 'silent' });
 
@@ -873,12 +878,35 @@ app.post('/api/ai/analyze-all', async (req, res) => {
   res.json({ success: true, message: 'Bulk historical analysis triggered in background.' });
 });
 
+// --- Render Keep-Alive Auto-Ping (Every 10 minutes) ---
+const KEEP_ALIVE_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes
+
+function startKeepAliveSelfPing() {
+  setInterval(() => {
+    const targetUrl = process.env.RENDER_EXTERNAL_URL || process.env.SERVER_URL || `http://localhost:${PORT}`;
+    const pingEndpoint = `${targetUrl.replace(/\/$/, '')}/ping`;
+
+    try {
+      const httpModule = pingEndpoint.startsWith('https') ? require('https') : require('http');
+      httpModule.get(pingEndpoint, (res) => {
+        console.log(`[Keep-Alive ⏰] Self-ping to ${pingEndpoint} returned status ${res.statusCode}`);
+      }).on('error', (err) => {
+        console.warn(`[Keep-Alive ⚠️] Self-ping attempt to ${pingEndpoint} failed: ${err.message}`);
+      });
+    } catch (err) {
+      console.error(`[Keep-Alive ⚠️] Self-ping error:`, err.message);
+    }
+  }, KEEP_ALIVE_INTERVAL_MS);
+}
+
 // Start Server & Restore Sessions
 const serverInstance = app.listen(PORT, () => {
   console.log(`\n🚀 Multi-Tenant WhatsApp + Gemini AI Server listening on http://localhost:${PORT}`);
   restoreExistingSessions();
   // Ensure default session is created if none exists
   getOrCreateSession('default');
+  // Start Keep-Alive Auto Ping
+  startKeepAliveSelfPing();
 });
 
 serverInstance.on('error', (err) => {
