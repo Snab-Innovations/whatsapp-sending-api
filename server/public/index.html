@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WhatsApp AI Task Planner & Executive Dashboard</title>
+  
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+    }
+    .ig-gradient-bg {
+      background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);
+    }
+    .ig-gradient-text {
+      background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+  </style>
+</head>
+<body class="bg-[#fafafa] text-slate-900 min-h-screen flex flex-col">
+
+  <!-- Header / Navigation Bar -->
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-40 px-4 sm:px-8 py-3.5 shadow-xs flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <div class="p-2.5 rounded-2xl ig-gradient-bg text-white shadow-md shadow-pink-500/20">
+        <i data-lucide="sparkles" class="w-5 h-5"></i>
+      </div>
+      <div>
+        <h1 class="text-lg font-black tracking-tight text-slate-900 flex items-center gap-2">
+          WhatsApp AI Executive Task Board
+        </h1>
+        <p class="text-xs text-slate-500 font-medium">Real-time Cloud Firestore & Gemini AI Task Sync</p>
+      </div>
+    </div>
+
+    <div class="flex items-center gap-3">
+      <div id="connectionStatus" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-200">
+        <span class="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
+        <span id="statusText">Server Connected</span>
+      </div>
+
+      <button id="refreshBtn" onclick="fetchTasks()" class="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-extrabold transition-all flex items-center gap-1.5 border border-slate-200">
+        <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Refresh
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Content Container -->
+  <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
+
+    <!-- Hero Statistics Card Row -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <!-- Stat 1: Total Tasks -->
+      <div class="bg-white border border-slate-200 p-5 rounded-2xl shadow-xs flex items-center justify-between">
+        <div>
+          <span class="text-xs font-extrabold text-slate-400 uppercase tracking-wider block mb-1">Total Extracted Tasks</span>
+          <h3 id="statTotal" class="text-3xl font-black text-slate-900">0</h3>
+        </div>
+        <div class="w-10 h-10 rounded-2xl bg-purple-50 border border-purple-200 text-purple-600 flex items-center justify-center">
+          <i data-lucide="list-todo" class="w-5 h-5"></i>
+        </div>
+      </div>
+
+      <!-- Stat 2: High Priority -->
+      <div class="bg-white border border-rose-200 p-5 rounded-2xl shadow-xs flex items-center justify-between bg-gradient-to-b from-rose-50/30 to-white">
+        <div>
+          <span class="text-xs font-extrabold text-rose-600 uppercase tracking-wider block mb-1">High Priority (Urgent)</span>
+          <h3 id="statHigh" class="text-3xl font-black text-rose-600">0</h3>
+        </div>
+        <div class="w-10 h-10 rounded-2xl bg-rose-50 border border-rose-200 text-rose-600 flex items-center justify-center">
+          <i data-lucide="shield-alert" class="w-5 h-5"></i>
+        </div>
+      </div>
+
+      <!-- Stat 3: Meetings & Schedules -->
+      <div class="bg-white border border-slate-200 p-5 rounded-2xl shadow-xs flex items-center justify-between">
+        <div>
+          <span class="text-xs font-extrabold text-slate-400 uppercase tracking-wider block mb-1">Meetings & Schedules</span>
+          <h3 id="statMeetings" class="text-3xl font-black text-purple-700">0</h3>
+        </div>
+        <div class="w-10 h-10 rounded-2xl bg-purple-50 border border-purple-200 text-purple-600 flex items-center justify-center">
+          <i data-lucide="calendar" class="w-5 h-5"></i>
+        </div>
+      </div>
+
+      <!-- Stat 4: Completed -->
+      <div class="bg-white border border-slate-200 p-5 rounded-2xl shadow-xs flex items-center justify-between">
+        <div>
+          <span class="text-xs font-extrabold text-slate-400 uppercase tracking-wider block mb-1">Finished Deliverables</span>
+          <h3 id="statCompleted" class="text-3xl font-black text-emerald-600">0</h3>
+        </div>
+        <div class="w-10 h-10 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-600 flex items-center justify-center">
+          <i data-lucide="check-circle-2" class="w-5 h-5"></i>
+        </div>
+      </div>
+    </div>
+
+    <!-- Controls & Filter Toolbar -->
+    <div class="bg-white border border-slate-200 rounded-3xl p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div class="flex items-center gap-2">
+        <h2 class="text-lg font-black text-slate-900">Extracted Action Items</h2>
+        <span id="taskCountBadge" class="bg-purple-50 text-purple-700 px-2.5 py-0.5 rounded-full text-xs font-extrabold border border-purple-200">0 Tasks</span>
+      </div>
+
+      <div class="flex flex-wrap items-center gap-2">
+        <!-- Search Input -->
+        <div class="relative min-w-[220px]">
+          <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2"></i>
+          <input
+            type="text"
+            id="searchInput"
+            placeholder="Search task, contact, or verdict..."
+            oninput="renderTasks()"
+            class="w-full bg-slate-50 border border-slate-200 text-slate-900 text-xs pl-9 pr-3 py-2.5 rounded-xl focus:outline-none focus:border-[#0095f6] font-medium"
+          />
+        </div>
+
+        <!-- Priority Filter -->
+        <select id="priorityFilter" onchange="renderTasks()" class="bg-slate-50 border border-slate-200 text-slate-900 text-xs px-3 py-2.5 rounded-xl focus:outline-none focus:border-[#0095f6] font-semibold">
+          <option value="ALL">All Priorities</option>
+          <option value="HIGH">🔥 HIGH Priority Only</option>
+          <option value="MEDIUM">⚡ MEDIUM Priority</option>
+          <option value="LOW">💬 LOW Priority</option>
+        </select>
+
+        <!-- Category Filter -->
+        <select id="categoryFilter" onchange="renderTasks()" class="bg-slate-50 border border-slate-200 text-slate-900 text-xs px-3 py-2.5 rounded-xl focus:outline-none focus:border-[#0095f6] font-semibold">
+          <option value="ALL">All Categories</option>
+          <option value="Meeting">📅 Meetings & Interviews</option>
+          <option value="Urgent">🚨 Urgent</option>
+          <option value="Work">💼 Work / Deliverables</option>
+          <option value="Payment">💳 Payments</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Tasks Grid Container -->
+    <div id="tasksGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+      <!-- Loading Skeleton State -->
+      <div class="col-span-full py-16 text-center text-slate-400">
+        <i data-lucide="loader-2" class="w-8 h-8 animate-spin mx-auto text-[#0095f6] mb-3"></i>
+        <p class="font-extrabold text-sm text-slate-700">Loading AI Tasks from Cloud Firestore & Server...</p>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Page Footer -->
+  <footer class="bg-white border-t border-slate-200 py-4 px-6 text-center text-xs text-slate-500 font-medium">
+    WhatsApp AI Task Management Dashboard • Powered by Google Gemini AI & Cloud Firestore
+  </footer>
+
+  <!-- Firebase Web SDK Integration Script -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { getFirestore, collection, getDocs, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyAvMbz8UrtU1fjx3uBndwhBziFaCVtlBG4",
+      authDomain: "findyourself-a7369.firebaseapp.com",
+      projectId: "findyourself-a7369",
+      storageBucket: "findyourself-a7369.firebasestorage.app",
+      messagingSenderId: "104779229944",
+      appId: "1:104779229944:web:e01808ba5af3ddd7aba90d",
+      measurementId: "G-B7QHM0FEQZ"
+    };
+
+    let allTasks = [];
+
+    // Initialize Firebase
+    try {
+      const app = initializeApp(firebaseConfig);
+      const db = getFirestore(app);
+      
+      // Listen to real-time Cloud Firestore updates
+      const tasksRef = collection(db, 'tasks');
+      onSnapshot(tasksRef, (snapshot) => {
+        const firestoreTasks = [];
+        snapshot.forEach(doc => firestoreTasks.push(doc.data()));
+        if (firestoreTasks.length > 0) {
+          allTasks = firestoreTasks;
+          renderTasks();
+          updateStats();
+        }
+      });
+    } catch (e) {
+      console.warn('Firebase client setup error:', e);
+    }
+
+    // Fetch tasks from Express Server API
+    async function fetchTasks() {
+      try {
+        const res = await fetch('/api/tasks');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.tasks) {
+            allTasks = data.tasks;
+            renderTasks();
+            updateStats();
+          }
+        }
+      } catch (err) {
+        console.warn('Could not fetch from local Express API, using Firestore:', err);
+      }
+    }
+
+    window.fetchTasks = fetchTasks;
+
+    // Connect to Server SSE Live Events
+    function initSSE() {
+      try {
+        const evtSource = new EventSource('/api/events');
+        evtSource.onmessage = (event) => {
+          const data = JSON.parse(event.data);
+          if (data.eventType === 'NEW_TASK' && data.task) {
+            allTasks = [data.task, ...allTasks.filter(t => t.id !== data.task.id)];
+            renderTasks();
+            updateStats();
+          } else if (data.eventType === 'BULK_ANALYSIS_COMPLETE') {
+            fetchTasks();
+          }
+        };
+      } catch (e) {
+        console.warn('SSE EventSource not supported or server offline:', e);
+      }
+    }
+
+    // Render Tasks Cards in Grid
+    function renderTasks() {
+      const grid = document.getElementById('tasksGrid');
+      const search = document.getElementById('searchInput').value.toLowerCase();
+      const priority = document.getElementById('priorityFilter').value;
+      const category = document.getElementById('categoryFilter').value;
+
+      const filtered = allTasks.filter(t => {
+        const title = (t.title || '').toLowerCase();
+        const chatName = (t.chatName || '').toLowerCase();
+        const verdict = (t.verdict || '').toLowerCase();
+        const matchesSearch = title.includes(search) || chatName.includes(search) || verdict.includes(search);
+        
+        if (!matchesSearch) return false;
+        if (priority !== 'ALL' && t.priority !== priority) return false;
+        if (category !== 'ALL' && t.category !== category) return false;
+        return true;
+      });
+
+      document.getElementById('taskCountBadge').innerText = `${filtered.length} Tasks`;
+
+      if (filtered.length === 0) {
+        grid.innerHTML = `
+          <div class="col-span-full py-16 text-center text-slate-400">
+            <i data-lucide="folder-kanban" class="w-10 h-10 mx-auto text-slate-300 mb-2"></i>
+            <p class="font-black text-slate-700 text-sm">No tasks matching criteria</p>
+            <p class="text-xs text-slate-400 mt-1">Send a WhatsApp message or clear search filters to view tasks.</p>
+          </div>
+        `;
+        lucide.createIcons();
+        return;
+      }
+
+      grid.innerHTML = filtered.map(t => {
+        const isHigh = t.priority === 'HIGH';
+        const isMed = t.priority === 'MEDIUM';
+        const priorityBadge = isHigh
+          ? `<span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-rose-50 text-rose-600 border border-rose-200 inline-flex items-center gap-1"><i data-lucide="shield-alert" class="w-3 h-3 text-rose-500"></i> HIGH</span>`
+          : isMed
+          ? `<span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-amber-50 text-amber-700 border border-amber-200 inline-flex items-center gap-1"><i data-lucide="zap" class="w-3 h-3 text-amber-500"></i> MEDIUM</span>`
+          : `<span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-sky-50 text-sky-600 border border-sky-200 inline-flex items-center gap-1"><i data-lucide="clock" class="w-3 h-3 text-sky-500"></i> LOW</span>`;
+
+        // URL Action Button Detection
+        const fullText = `${t.title || ''} ${t.originalMessage || ''} ${t.verdict || ''}`;
+        const urlMatch = fullText.match(/(https?:\/\/[^\s]+)/gi);
+        let linkBtnHtml = '';
+
+        if (urlMatch && urlMatch.length > 0) {
+          const url = urlMatch[0].replace(/[.,)!]*$/, '');
+          const lowerUrl = url.toLowerCase();
+          const isMeeting = lowerUrl.includes('meet.google.com') || lowerUrl.includes('zoom.us') || lowerUrl.includes('teams.microsoft');
+          const isPayment = lowerUrl.includes('pay') || lowerUrl.includes('invoice') || lowerUrl.includes('paypal');
+
+          if (isMeeting) {
+            linkBtnHtml = `
+              <a href="${url}" target="_blank" class="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-md transition-all">
+                <i data-lucide="video" class="w-3.5 h-3.5"></i> 📹 Join Meeting <i data-lucide="external-link" class="w-3 h-3 opacity-70"></i>
+              </a>
+            `;
+          } else if (isPayment) {
+            linkBtnHtml = `
+              <a href="${url}" target="_blank" class="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#0095f6] hover:bg-[#1877f2] text-white font-extrabold text-xs rounded-xl shadow-md transition-all">
+                <i data-lucide="credit-card" class="w-3.5 h-3.5"></i> 💳 Pay Now <i data-lucide="external-link" class="w-3 h-3 opacity-70"></i>
+              </a>
+            `;
+          } else {
+            linkBtnHtml = `
+              <a href="${url}" target="_blank" class="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white font-extrabold text-xs rounded-xl shadow-md transition-all">
+                <i data-lucide="external-link" class="w-3.5 h-3.5"></i> 🔗 Open Link
+              </a>
+            `;
+          }
+        }
+
+        return `
+          <div class="bg-white border border-slate-200 hover:border-slate-300 rounded-3xl p-5 shadow-xs hover:shadow-md transition-all flex flex-col justify-between space-y-4">
+            <div>
+              <div class="flex items-center justify-between mb-3">
+                ${priorityBadge}
+                <span class="bg-purple-50 text-purple-700 text-[10px] px-2.5 py-0.5 rounded-full font-extrabold border border-purple-200">
+                  ${t.category || 'General'}
+                </span>
+              </div>
+
+              <h3 class="font-black text-sm text-slate-900 mb-2 leading-snug">
+                ${t.title}
+              </h3>
+
+              ${t.verdict ? `
+                <div class="p-3 rounded-2xl bg-purple-50 border border-purple-200 text-xs text-purple-900 font-semibold leading-relaxed mb-2">
+                  <span class="font-extrabold text-purple-700 flex items-center gap-1 mb-0.5">
+                    <i data-lucide="sparkles" class="w-3.5 h-3.5 text-pink-500"></i> AI Verdict:
+                  </span>
+                  ${t.verdict}
+                </div>
+              ` : ''}
+
+              ${t.originalMessage && t.originalMessage !== t.title ? `
+                <p class="text-xs text-slate-500 italic bg-slate-50 p-2.5 rounded-xl border border-slate-100 line-clamp-2">
+                  "${t.originalMessage}"
+                </p>
+              ` : ''}
+
+              ${linkBtnHtml}
+            </div>
+
+            <div class="pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+              <div class="flex items-center gap-1.5 font-bold text-slate-700 min-w-0">
+                <i data-lucide="user" class="w-3.5 h-3.5 text-[#0095f6] shrink-0"></i>
+                <span class="truncate">${t.chatName || 'WhatsApp Contact'}</span>
+              </div>
+
+              ${t.dueDate ? `
+                <span class="font-mono text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full text-[10px] font-bold">
+                  ${t.dueDate}
+                </span>
+              ` : ''}
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      lucide.createIcons();
+    }
+
+    window.renderTasks = renderTasks;
+
+    // Update Statistics
+    function updateStats() {
+      document.getElementById('statTotal').innerText = allTasks.length;
+      document.getElementById('statHigh').innerText = allTasks.filter(t => t.priority === 'HIGH').length;
+      document.getElementById('statMeetings').innerText = allTasks.filter(t => t.category === 'Meeting').length;
+      document.getElementById('statCompleted').innerText = allTasks.filter(t => t.status === 'COMPLETED').length;
+    }
+
+    // Initial Load
+    fetchTasks();
+    initSSE();
+  </script>
+</body>
+</html>
