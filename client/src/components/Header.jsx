@@ -12,8 +12,11 @@ import {
   Bot,
   BarChart3,
   FolderKanban,
-  Instagram
+  Instagram,
+  Lock,
+  KeyRound
 } from 'lucide-react';
+import { clearSessionPasscode } from '../utils/session';
 
 export default function Header({
   clientState,
@@ -23,7 +26,9 @@ export default function Header({
   onOpenNewChat,
   activeTab,
   onTabChange,
-  taskCount = 0
+  taskCount = 0,
+  sessionId,
+  onLockSession
 }) {
   const { status, userInfo } = clientState;
 
@@ -176,9 +181,20 @@ export default function Header({
             </button>
 
             <button
+              onClick={() => {
+                clearSessionPasscode();
+                if (onLockSession) onLockSession();
+              }}
+              title="Lock Session & Require Passcode"
+              className="p-2 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-600 transition-colors border border-amber-200 flex items-center justify-center cursor-pointer"
+            >
+              <Lock className="w-4 h-4" />
+            </button>
+
+            <button
               onClick={onLogout}
               title="Logout & Clear Local Session"
-              className="p-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 transition-colors border border-rose-200 flex items-center justify-center"
+              className="p-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 transition-colors border border-rose-200 flex items-center justify-center cursor-pointer"
             >
               <LogOut className="w-4 h-4" />
             </button>

@@ -1,20 +1,23 @@
 // API service layer for WhatsApp web chat viewer & Gemini AI Task Manager (Multi-Tenant)
-import { getOrCreateSessionId } from '../utils/session';
+import { getOrCreateSessionId, getSessionPasscode } from '../utils/session';
 
 const API_BASE = import.meta.env.DEV ? (import.meta.env.VITE_SERVER_URL || '').replace(/\/$/, '') : '';
 
 function getHeaders(customHeaders = {}) {
   const sessionId = getOrCreateSessionId();
+  const passcode = getSessionPasscode();
   return {
     'Content-Type': 'application/json',
     'x-session-id': sessionId,
+    'x-session-passcode': passcode,
     ...customHeaders
   };
 }
 
 export function subscribeToEvents(onUpdate) {
   const sessionId = getOrCreateSessionId();
-  const eventSource = new EventSource(`${API_BASE}/api/events?sessionId=${encodeURIComponent(sessionId)}`);
+  const passcode = getSessionPasscode();
+  const eventSource = new EventSource(`${API_BASE}/api/events?sessionId=${encodeURIComponent(sessionId)}&passcode=${encodeURIComponent(passcode)}`);
 
   eventSource.onmessage = (event) => {
     try {
@@ -32,6 +35,32 @@ export function subscribeToEvents(onUpdate) {
   return () => {
     eventSource.close();
   };
+}
+
+export async function verifyPasscode(passcode) {
+  const res = await fetch(`${API_BASE}/api/auth/verify-passcode`, {
+    method: 'POST',
+    headers: getHeaders(),
+    body: JSON.stringify({ passcode })
+  });
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.error || 'Invalid session passcode');
+  }
+  return res.json();
+}
+
+export async function setPasscode(newPasscode) {
+  const res = await fetch(`${API_BASE}/api/auth/set-passcode`, {
+    method: 'POST',
+    headers: getHeaders(),
+    body: JSON.stringify({ newPasscode })
+  });
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.error || 'Failed to set passcode');
+  }
+  return res.json();
 }
 
 export async function getStatus() {

@@ -7,6 +7,8 @@ import ChatWindow from './components/ChatWindow';
 import TaskKanban from './components/TaskKanban';
 import AIAnalyticsPage from './components/AIAnalyticsPage';
 import NewChatModal from './components/NewChatModal';
+import PasscodeLockModal from './components/PasscodeLockModal';
+import { getOrCreateSessionId, getSessionPasscode, clearSessionPasscode } from './utils/session';
 import {
   subscribeToEvents,
   getStatus,
@@ -343,6 +345,14 @@ export default function App() {
   };
 
   const isModalOpen = clientState.status !== 'READY';
+  const isLocked = Boolean(clientState.isLocked);
+  const currentSessionId = getOrCreateSessionId();
+
+  const handleUnlocked = () => {
+    setClientState((prev) => ({ ...prev, isLocked: false }));
+    fetchChats();
+    fetchTasks();
+  };
 
   return (
     <div className="flex flex-col h-screen bg-[#0b141a] text-[#e9edef] overflow-hidden">
@@ -355,6 +365,8 @@ export default function App() {
         activeTab={activeTab}
         onTabChange={setActiveTab}
         taskCount={tasks.filter(t => t.status !== 'COMPLETED').length}
+        sessionId={currentSessionId}
+        onLockSession={() => setClientState(prev => ({ ...prev, isLocked: true }))}
       />
 
       <main className="flex-1 flex overflow-hidden relative">
@@ -414,7 +426,12 @@ export default function App() {
         onSendDirectMessage={handleSendDirectMessage}
       />
 
-      {isModalOpen && (
+      {isLocked ? (
+        <PasscodeLockModal
+          sessionId={currentSessionId}
+          onUnlocked={handleUnlocked}
+        />
+      ) : isModalOpen && (
         <QRModal
           clientState={clientState}
           onRestart={handleRestart}

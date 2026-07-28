@@ -81,6 +81,10 @@ function sanitizeSessionId(sessionId) {
   return sessionId.replace(/[^a-zA-Z0-9_-]/g, '_').substring(0, 64) || 'default';
 }
 
+function generatePasscode() {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+}
+
 /**
  * Creates or retrieves a session instance for a given sessionId
  */
@@ -103,6 +107,7 @@ function getOrCreateSession(rawSessionId) {
     sessionDir,
     authPath,
     storePath,
+    passcode: generatePasscode(),
     sock: null,
     clientState: {
       status: 'INITIALIZING', // INITIALIZING, QR_READY, AUTHENTICATED, READY, DISCONNECTED, AUTH_FAILURE
@@ -135,6 +140,11 @@ function loadSessionStoreFromDisk(session) {
     if (fs.existsSync(session.storePath)) {
       const raw = fs.readFileSync(session.storePath, 'utf-8');
       const data = JSON.parse(raw);
+      if (data.passcode) {
+        session.passcode = String(data.passcode).trim();
+      } else {
+        saveSessionStoreToDisk(session);
+      }
       if (Array.isArray(data.chats)) {
         data.chats.forEach(c => {
           if (c && c.id) {
@@ -153,7 +163,9 @@ function loadSessionStoreFromDisk(session) {
           if (t && t.id) session.tasksMap.set(t.id, t);
         });
       }
-      console.log(`[Session 💾 ${session.sessionId}] Loaded persistent state from disk: ${session.chatsMap.size} chats, ${session.messagesMap.size} message threads, ${session.tasksMap.size} tasks.`);
+      console.log(`[Session 💾 ${session.sessionId}] Loaded persistent state from disk: ${session.chatsMap.size} chats, ${session.messagesMap.size} message threads, ${session.tasksMap.size} tasks (Passcode: ${session.passcode}).`);
+    } else {
+      saveSessionStoreToDisk(session);
     }
   } catch (err) {
     console.error(`[Session ${session.sessionId}] Error reading store.json:`, err.message);
@@ -163,6 +175,7 @@ function loadSessionStoreFromDisk(session) {
 function saveSessionStoreToDisk(session) {
   try {
     const data = {
+      passcode: session.passcode,
       chats: Array.from(session.chatsMap.values()),
       messages: Object.fromEntries(session.messagesMap),
       tasks: Array.from(session.tasksMap.values())
@@ -665,8 +678,86 @@ app.use((req, res, next) => {
   next();
 });
 
-// Real-time EventSource Stream per session
-app.get('/api/events', (req, res) => {
+// Middleware: Verify Session Passcode for protected endpoints
+function verifyPasscodeAuth(req, res, next) {
+  const session = req.sessionInstance;
+  if (!session) return next();
+
+  const clientPasscode = req.headers['x-session-passcode'] || req.query.passcode;
+  const isValid = Boolean(
+    session.passcode &&
+    clientPasscode &&
+    String(clientPasscode).trim() === String(session.passcode).trim()
+  );
+
+  if (!isValid) {
+    return res.status(401).json({
+      error: 'PASSCODE_REQUIRED',
+      requiresPasscode: true,
+      sessionId: session.sessionId,
+      message: 'Access locked. Please enter your 6-digit session passcode.'
+    });
+  }
+  next();
+}
+
+// --- Public Auth Endpoints ---
+app.get('/api/status', (req, res) => {
+  const session = req.sessionInstance;
+  const clientPasscode = req.headers['x-session-passcode'] || req.query.passcode;
+  const isUnlocked = Boolean(
+    session.passcode &&
+    clientPasscode &&
+    String(clientPasscode).trim() === String(session.passcode).trim()
+  );
+
+  res.json({
+    ...session.clientState,
+    sessionId: session.sessionId,
+    hasPasscode: true,
+    isLocked: !isUnlocked,
+    // Reveal passcode during QR scanning / setup or if unlocked
+    passcode: (session.clientState.status === 'QR_READY' || session.clientState.status === 'INITIALIZING' || isUnlocked) ? session.passcode : null
+  });
+});
+
+app.post('/api/auth/verify-passcode', (req, res) => {
+  const session = req.sessionInstance;
+  const { passcode } = req.body || {};
+
+  const isValid = Boolean(
+    session.passcode &&
+    passcode &&
+    String(passcode).trim() === String(session.passcode).trim()
+  );
+
+  if (!isValid) {
+    return res.status(401).json({ success: false, error: 'Invalid session passcode. Access denied.' });
+  }
+
+  res.json({
+    success: true,
+    sessionId: session.sessionId,
+    passcode: session.passcode,
+    message: 'Passcode verified successfully!'
+  });
+});
+
+app.post('/api/auth/set-passcode', verifyPasscodeAuth, (req, res) => {
+  const session = req.sessionInstance;
+  const { newPasscode } = req.body || {};
+
+  if (!newPasscode || String(newPasscode).trim().length < 4) {
+    return res.status(400).json({ error: 'Passcode must be at least 4 characters long.' });
+  }
+
+  session.passcode = String(newPasscode).trim();
+  saveSessionStoreToDisk(session);
+  res.json({ success: true, passcode: session.passcode, message: 'Passcode updated successfully!' });
+});
+
+// --- Protected API Endpoints ---
+app.get('/api/events', verifyPasscodeAuth, (req, res) => {
   const session = req.sessionInstance;
 
   res.setHeader('Content-Type', 'text/event-stream');
@@ -677,18 +768,14 @@ app.get('/api/events', (req, res) => {
   session.sseClients.add(res);
 
   // Immediately send initial connection state
-  res.write(`data: ${JSON.stringify(session.clientState)}\n\n`);
+  res.write(`data: ${JSON.stringify({ ...session.clientState, sessionId: session.sessionId })}\n\n`);
 
   req.on('close', () => {
     session.sseClients.delete(res);
   });
 });
 
-app.get('/api/status', (req, res) => {
-  res.json(req.sessionInstance.clientState);
-});
-
-app.get('/api/chats', (req, res) => {
+app.get('/api/chats', verifyPasscodeAuth, (req, res) => {
   const session = req.sessionInstance;
   if (session.clientState.status !== 'READY' && session.chatsMap.size === 0) {
     return res.status(503).json({ error: 'WhatsApp client not ready yet' });
@@ -700,7 +787,7 @@ app.get('/api/chats', (req, res) => {
   res.json({ chats: sortedChats });
 });
 
-app.get('/api/chats/:chatId/messages', (req, res) => {
+app.get('/api/chats/:chatId/messages', verifyPasscodeAuth, (req, res) => {
   const session = req.sessionInstance;
   const { chatId } = req.params;
   const limit = parseInt(req.query.limit) || 50;
@@ -712,7 +799,7 @@ app.get('/api/chats/:chatId/messages', (req, res) => {
   res.json({ chatId: remoteJid, messages: sliced, total: msgs.length });
 });
 
-app.post('/api/messages/send', async (req, res) => {
+app.post('/api/messages/send', verifyPasscodeAuth, async (req, res) => {
   const session = req.sessionInstance;
   const { chatId, message } = req.body;
 
@@ -769,12 +856,12 @@ app.post('/api/messages/send', async (req, res) => {
 });
 
 // Tasks Endpoints
-app.get('/api/tasks', (req, res) => {
+app.get('/api/tasks', verifyPasscodeAuth, (req, res) => {
   const tasks = Array.from(req.sessionInstance.tasksMap.values());
   res.json({ tasks });
 });
 
-app.post('/api/tasks', (req, res) => {
+app.post('/api/tasks', verifyPasscodeAuth, (req, res) => {
   const session = req.sessionInstance;
   const taskData = req.body;
   if (!taskData || !taskData.title) {
@@ -805,7 +892,7 @@ app.post('/api/tasks', (req, res) => {
   res.json({ success: true, task: taskObj });
 });
 
-app.patch('/api/tasks/:id', (req, res) => {
+app.patch('/api/tasks/:id', verifyPasscodeAuth, (req, res) => {
   const session = req.sessionInstance;
   const { id } = req.params;
   const updates = req.body;
@@ -823,7 +910,7 @@ app.patch('/api/tasks/:id', (req, res) => {
   res.json({ success: true, task: updated });
 });
 
-app.delete('/api/tasks/:id', (req, res) => {
+app.delete('/api/tasks/:id', verifyPasscodeAuth, (req, res) => {
   const session = req.sessionInstance;
   const { id } = req.params;
 
@@ -834,7 +921,7 @@ app.delete('/api/tasks/:id', (req, res) => {
   res.json({ success: true, id });
 });
 
-app.post('/api/logout', (req, res) => {
+app.post('/api/logout', verifyPasscodeAuth, (req, res) => {
   const session = req.sessionInstance;
   try {
     if (session.sock) {
@@ -859,7 +946,7 @@ app.post('/api/logout', (req, res) => {
   }
 });
 
-app.post('/api/restart', (req, res) => {
+app.post('/api/restart', verifyPasscodeAuth, (req, res) => {
   const session = req.sessionInstance;
   try {
     if (session.sock) {
@@ -872,7 +959,7 @@ app.post('/api/restart', (req, res) => {
   }
 });
 
-app.post('/api/ai/analyze-all', async (req, res) => {
+app.post('/api/ai/analyze-all', verifyPasscodeAuth, async (req, res) => {
   const session = req.sessionInstance;
   runBackgroundHistoricalAnalysisForSession(session);
   res.json({ success: true, message: 'Bulk historical analysis triggered in background.' });

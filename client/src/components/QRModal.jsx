@@ -35,6 +35,14 @@ export default function QRModal({ clientState, onRestart, onResetSession }) {
                 <span className="w-2 h-2 rounded-full bg-[#0095f6]" />
                 Live QR Code generated — waiting for phone scan...
               </p>
+
+              {clientState.passcode && (
+                <div className="mt-3 bg-amber-50 border border-amber-200 rounded-2xl p-3 text-center w-full max-w-xs shadow-sm">
+                  <p className="text-[11px] font-bold text-amber-900 uppercase tracking-wider">Your Session Access Passcode:</p>
+                  <div className="text-2xl font-mono font-black text-amber-700 tracking-widest my-1">{clientState.passcode}</div>
+                  <p className="text-[10px] text-amber-800 font-medium">Save this PIN! You will need it to access messages & tasks.</p>
+                </div>
+              )}
             </div>
           ) : status === 'INITIALIZING' ? (
             <div className="flex flex-col items-center gap-3">
