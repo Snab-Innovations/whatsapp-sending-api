@@ -12,6 +12,7 @@ import {
   Bot,
   BarChart3,
   FolderKanban,
+  Instagram,
   Lock,
   KeyRound,
   Copy,
@@ -19,9 +20,7 @@ import {
   Eye,
   EyeOff,
   ShieldCheck,
-  X,
-  UserCheck,
-  ChevronDown
+  X
 } from 'lucide-react';
 import { clearSessionPasscode, getSessionPasscode, setSessionPasscode } from '../utils/session';
 import { setPasscode as apiSetPasscode } from '../services/api';
@@ -39,49 +38,47 @@ export default function Header({
   onLockSession
 }) {
   const { status, userInfo } = clientState;
-  const [isKeyModalOpen, setIsKeyModalOpen] = useState(false);
-  const [showPasscode, setShowPasscode] = useState(false);
-  const [copiedType, setCopiedType] = useState('');
-  const [customPasscode, setCustomPasscode] = useState('');
-  const [passcodeMsg, setPasscodeMsg] = useState('');
-  const [showMobileActionsMenu, setShowMobileActionsMenu] = useState(false);
-
-  const currentPasscode = getSessionPasscode();
 
   const getStatusBadge = () => {
     switch (status) {
       case 'READY':
         return (
-          <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-extrabold bg-emerald-50 text-emerald-600 border border-emerald-200/80 shadow-2xs">
+          <span className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-600 border border-emerald-200 shadow-sm">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="hidden sm:inline">WhatsApp Connected</span>
-            <span className="sm:hidden">Ready</span>
+            Baileys Connected
           </span>
         );
       case 'AUTHENTICATED':
         return (
-          <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-extrabold bg-sky-50 text-sky-600 border border-sky-200/80 shadow-2xs">
-            <Loader2 className="w-3.5 h-3.5 animate-spin text-sky-500" />
-            <span className="hidden sm:inline">Authenticating...</span>
-            <span className="sm:hidden">Syncing</span>
+          <span className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-sky-50 text-sky-600 border border-sky-200 shadow-sm">
+            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            Authenticating...
           </span>
         );
       case 'QR_READY':
         return (
-          <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-extrabold bg-amber-50 text-amber-700 border border-amber-200/80 shadow-2xs">
-            <Wifi className="w-3.5 h-3.5 text-amber-600" />
-            <span>Scan QR</span>
+          <span className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-600 border border-amber-200 shadow-sm">
+            <Wifi className="w-3.5 h-3.5" />
+            Scan QR Code
           </span>
         );
       default:
         return (
-          <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-extrabold bg-rose-50 text-rose-600 border border-rose-200/80 shadow-2xs">
+          <span className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-rose-50 text-rose-600 border border-rose-200 shadow-sm">
             <WifiOff className="w-3.5 h-3.5" />
-            <span>Disconnected</span>
+            Disconnected
           </span>
         );
     }
   };
+
+  const [isKeyModalOpen, setIsKeyModalOpen] = useState(false);
+  const [showPasscode, setShowPasscode] = useState(false);
+  const [copiedType, setCopiedType] = useState('');
+  const [customPasscode, setCustomPasscode] = useState('');
+  const [passcodeMsg, setPasscodeMsg] = useState('');
+
+  const currentPasscode = getSessionPasscode();
 
   const handleCopy = (text, type) => {
     navigator.clipboard.writeText(text);
@@ -98,7 +95,7 @@ export default function Header({
     try {
       await apiSetPasscode(customPasscode.trim());
       setSessionPasscode(customPasscode.trim());
-      setPasscodeMsg('✅ Access PIN updated successfully!');
+      setPasscodeMsg('✅ Access Passcode updated successfully!');
       setCustomPasscode('');
       setTimeout(() => setPasscodeMsg(''), 3000);
     } catch (err) {
@@ -107,120 +104,128 @@ export default function Header({
   };
 
   return (
-    <header className="h-16 bg-white/95 backdrop-blur-md border-b border-slate-200/80 px-3 sm:px-6 flex items-center justify-between shrink-0 select-none shadow-2xs z-30 relative">
-      {/* Left Brand Icon & Logo */}
-      <div className="flex items-center gap-2.5 cursor-pointer" onClick={() => onTabChange('DASHBOARD')}>
-        <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-[14px] bg-gradient-to-tr from-[#0095f6] via-purple-600 to-pink-500 text-white flex items-center justify-center shadow-md shadow-blue-500/20 active:scale-95 transition-transform shrink-0">
-          <Bot className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+    <header className="h-16 bg-white border-b border-slate-200 px-4 sm:px-6 flex items-center justify-between shrink-0 select-none shadow-xs z-30">
+      {/* Left Logo & Brand */}
+      <div className="flex items-center gap-3 cursor-pointer" onClick={() => onTabChange('DASHBOARD')}>
+        <div className="w-10 h-10 rounded-2xl ig-gradient-bg flex items-center justify-center shadow-md shadow-pink-500/20">
+          <Bot className="w-6 h-6 text-[#ffffff]" />
         </div>
-        <div className="min-w-0">
-          <h1 className="font-black text-base sm:text-lg text-slate-900 tracking-tight leading-tight flex items-center gap-1.5 truncate">
-            <span>WhatsApp AI</span>
-            <span className="hidden sm:inline-flex uppercase text-[10px] font-mono px-2 py-0.5 rounded-full bg-purple-50 text-purple-600 border border-purple-200 font-extrabold items-center gap-1">
+        <div>
+          <h1 className="font-extrabold text-lg text-slate-900 tracking-tight flex items-center gap-2">
+            <span className="ig-gradient-text">WhatsApp AI</span>
+            <span className="text-xs uppercase font-mono px-2 py-0.5 rounded-full bg-purple-50 text-purple-600 border border-purple-200 font-bold flex items-center gap-1">
               <Sparkles className="w-3 h-3 text-purple-500" /> Gemini 1.5
             </span>
           </h1>
-          <p className="text-[10px] text-slate-500 font-medium truncate hidden sm:block">AI Task Planner & Direct Manager</p>
+          <p className="text-[11px] text-slate-500 font-medium">Instagram Professional AI Task Manager</p>
         </div>
       </div>
 
-      {/* Center Segmented Control Nav Tabs (Desktop) */}
-      <div className="hidden lg:flex items-center bg-slate-100/90 p-1 rounded-2xl border border-slate-200/80">
+      {/* Center Navigation Tabs - Instagram Style */}
+      <div className="hidden lg:flex items-center bg-slate-100/80 p-1 rounded-2xl border border-slate-200">
+        {/* Main Dashboard */}
         <button
           onClick={() => onTabChange('DASHBOARD')}
-          className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-extrabold transition-all ${
             activeTab === 'DASHBOARD'
-              ? 'bg-white text-slate-900 shadow-sm'
-              : 'text-slate-600 hover:text-slate-900'
+              ? 'ig-gradient-bg text-white shadow-md shadow-rose-500/20'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
           }`}
         >
-          <LayoutDashboard className="w-4 h-4 text-[#0095f6]" />
+          <LayoutDashboard className="w-4 h-4" />
           Dashboard
         </button>
 
+        {/* WhatsApp Chats */}
         <button
           onClick={() => onTabChange('CHATS')}
-          className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-extrabold transition-all ${
             activeTab === 'CHATS' || activeTab === 'WORKSPACE'
-              ? 'bg-white text-slate-900 shadow-sm'
-              : 'text-slate-600 hover:text-slate-900'
+              ? 'bg-[#0095f6] text-white shadow-md shadow-blue-500/20'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
           }`}
         >
-          <MessageSquare className="w-4 h-4 text-purple-600" />
-          Chats
+          <MessageSquare className="w-4 h-4" />
+          Direct Chats
         </button>
 
+        {/* Task Board */}
         <button
           onClick={() => onTabChange('KANBAN')}
-          className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-extrabold transition-all ${
             activeTab === 'KANBAN'
-              ? 'bg-white text-slate-900 shadow-sm'
-              : 'text-slate-600 hover:text-slate-900'
+              ? 'bg-purple-600 text-white shadow-md shadow-purple-500/20'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
           }`}
         >
-          <FolderKanban className="w-4 h-4 text-amber-500" />
+          <FolderKanban className="w-4 h-4" />
           Task Board
           {taskCount > 0 && (
-            <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-rose-500 text-white font-black">
+            <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-rose-100 text-rose-600 font-extrabold">
               {taskCount}
             </span>
           )}
         </button>
 
+        {/* Executive Analytics */}
         <button
           onClick={() => onTabChange('ANALYTICS')}
-          className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-extrabold transition-all ${
             activeTab === 'ANALYTICS'
-              ? 'bg-white text-slate-900 shadow-sm'
-              : 'text-slate-600 hover:text-slate-900'
+              ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-md shadow-pink-500/20'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
           }`}
         >
-          <BarChart3 className="w-4 h-4 text-pink-500" />
+          <BarChart3 className="w-4 h-4" />
           Analytics
         </button>
       </div>
 
-      {/* Right Controls & Profile */}
-      <div className="flex items-center gap-2 sm:gap-3">
+      {/* Right Status & User Profile */}
+      <div className="flex items-center gap-3">
         {getStatusBadge()}
 
         {status === 'READY' && userInfo && (
-          <div className="hidden md:flex items-center gap-2 bg-slate-50 px-2.5 py-1 rounded-2xl border border-slate-200/80">
-            <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-[#0095f6] to-purple-600 text-white flex items-center justify-center font-extrabold text-xs shadow-2xs">
-              {userInfo.pushname ? userInfo.pushname.charAt(0).toUpperCase() : 'W'}
+          <div className="flex items-center gap-2.5 bg-slate-50 px-2.5 py-1 rounded-2xl border border-slate-200">
+            {/* Instagram Story Gradient Ring */}
+            <div className="p-[2px] rounded-full ig-gradient-bg shadow-sm">
+              <div className="w-7 h-7 rounded-full bg-white text-slate-900 flex items-center justify-center font-extrabold text-xs">
+                {userInfo.pushname ? userInfo.pushname.charAt(0).toUpperCase() : 'W'}
+              </div>
             </div>
-            <div className="text-left">
-              <p className="text-xs font-bold text-slate-900 leading-tight truncate max-w-[100px]">{userInfo.pushname}</p>
+            <div className="text-left hidden sm:block">
+              <p className="text-xs font-bold text-slate-900 leading-tight">{userInfo.pushname}</p>
+              <p className="text-[10px] text-slate-500 font-mono">{userInfo.phone ? `+${userInfo.phone}` : ''}</p>
             </div>
           </div>
         )}
 
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-2">
           {status === 'READY' && (
             <>
               <button
                 onClick={onOpenNewChat}
-                className="px-3 py-1.5 rounded-xl bg-[#0095f6] hover:bg-[#1877f2] text-white font-extrabold text-xs transition-all shadow-xs flex items-center gap-1 cursor-pointer active:scale-95"
+                className="px-3.5 py-2 rounded-xl bg-[#0095f6] hover:bg-[#1877f2] text-white font-bold text-xs transition-all shadow-md shadow-blue-500/20 flex items-center gap-1.5 cursor-pointer"
               >
-                <Plus className="w-4 h-4" /> <span className="hidden sm:inline">New Chat</span>
+                <Plus className="w-4 h-4" /> New Chat
               </button>
 
               <button
                 onClick={onSync}
                 disabled={loadingSync}
                 title="Sync & Refetch Chats"
-                className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors border border-slate-200/80 disabled:opacity-50 flex items-center justify-center cursor-pointer active:scale-95"
+                className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors border border-slate-200 disabled:opacity-50 flex items-center justify-center cursor-pointer"
               >
                 <RefreshCw className={`w-4 h-4 ${loadingSync ? 'animate-spin text-[#0095f6]' : ''}`} />
               </button>
             </>
           )}
 
-          {/* Quick Access Key PIN Button */}
+          {/* Key Passcode View/Edit Button */}
           <button
             onClick={() => setIsKeyModalOpen(true)}
-            title="View Access PIN & Session Key"
-            className="p-2 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-700 transition-colors border border-amber-200/80 flex items-center justify-center cursor-pointer shadow-2xs active:scale-95"
+            title="View & Copy Access PIN / Passcode"
+            className="p-2 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-600 transition-colors border border-purple-200 flex items-center justify-center cursor-pointer shadow-xs"
           >
             <KeyRound className="w-4 h-4" />
           </button>
@@ -230,8 +235,8 @@ export default function Header({
               clearSessionPasscode();
               if (onLockSession) onLockSession();
             }}
-            title="Lock Session"
-            className="p-2 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-600 transition-colors border border-purple-200/80 flex items-center justify-center cursor-pointer active:scale-95"
+            title="Lock Session & Require Passcode"
+            className="p-2 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-600 transition-colors border border-amber-200 flex items-center justify-center cursor-pointer"
           >
             <Lock className="w-4 h-4" />
           </button>
@@ -239,8 +244,8 @@ export default function Header({
           {status === 'READY' && (
             <button
               onClick={onLogout}
-              title="Logout Session"
-              className="p-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 transition-colors border border-rose-200/80 flex items-center justify-center cursor-pointer active:scale-95"
+              title="Logout & Clear Local Session"
+              className="p-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 transition-colors border border-rose-200 flex items-center justify-center cursor-pointer"
             >
               <LogOut className="w-4 h-4" />
             </button>
@@ -248,36 +253,36 @@ export default function Header({
         </div>
       </div>
 
-      {/* Access Key / PIN Info Modal */}
+      {/* Access Key / Passcode Info Modal */}
       {isKeyModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-white border border-slate-200/80 w-full max-w-md rounded-[32px] p-6 shadow-2xl relative overflow-hidden">
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white border border-slate-200 w-full max-w-md rounded-3xl p-6 shadow-2xl relative">
             <button
               onClick={() => setIsKeyModalOpen(false)}
-              className="absolute top-4 right-4 p-1.5 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-all cursor-pointer"
+              className="absolute top-4 right-4 p-1 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-all"
             >
               <X className="w-5 h-5" />
             </button>
 
             <div className="text-center mb-5">
-              <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-amber-100 text-amber-700 mb-2 border border-amber-200">
-                <KeyRound className="w-7 h-7" />
+              <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-purple-50 text-purple-600 mb-2 border border-purple-200">
+                <KeyRound className="w-6 h-6" />
               </div>
               <h3 className="text-xl font-black text-slate-900">Your Session Access Key</h3>
               <p className="text-xs text-slate-500 font-medium mt-1">
-                Use your Session ID and PIN to log in from any phone or desktop browser!
+                Use this Session ID and PIN to access your WhatsApp tasks from any browser or device!
               </p>
             </div>
 
             <div className="space-y-4">
               {/* Session ID Box */}
-              <div className="bg-slate-50 border border-slate-200/80 p-3.5 rounded-2xl">
-                <p className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider mb-1">Session ID:</p>
+              <div className="bg-slate-50 border border-slate-200 p-3 rounded-2xl">
+                <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Session ID:</p>
                 <div className="flex items-center justify-between font-mono text-xs font-bold text-slate-900">
                   <span className="truncate max-w-[240px]">{sessionId || 'default'}</span>
                   <button
                     onClick={() => handleCopy(sessionId, 'session')}
-                    className="flex items-center gap-1 text-xs font-bold text-[#0095f6] hover:underline cursor-pointer"
+                    className="flex items-center gap-1 text-[11px] font-bold text-[#0095f6] hover:underline"
                   >
                     {copiedType === 'session' ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
                     {copiedType === 'session' ? 'Copied' : 'Copy'}
@@ -286,8 +291,8 @@ export default function Header({
               </div>
 
               {/* Passcode Box */}
-              <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200/80 p-4 rounded-2xl">
-                <p className="text-[10px] font-extrabold text-amber-900 uppercase tracking-wider mb-1">Access PIN / Passcode:</p>
+              <div className="bg-amber-50 border border-amber-200 p-3.5 rounded-2xl">
+                <p className="text-[11px] font-bold text-amber-900 uppercase tracking-wider mb-1">Access PIN / Passcode:</p>
                 <div className="flex items-center justify-between">
                   <span className="font-mono text-2xl font-black text-amber-700 tracking-widest">
                     {showPasscode ? currentPasscode || 'None set' : '••••••'}
@@ -295,13 +300,13 @@ export default function Header({
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => setShowPasscode(!showPasscode)}
-                      className="p-2 rounded-xl bg-amber-100 hover:bg-amber-200 text-amber-900 text-xs font-bold flex items-center gap-1 cursor-pointer"
+                      className="p-1.5 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-800 text-xs font-bold flex items-center gap-1"
                     >
-                      {showPasscode ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      {showPasscode ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                     </button>
                     <button
                       onClick={() => handleCopy(currentPasscode, 'passcode')}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-extrabold shadow-xs cursor-pointer active:scale-95"
+                      className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold shadow-xs"
                     >
                       {copiedType === 'passcode' ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
                       {copiedType === 'passcode' ? 'Copied' : 'Copy PIN'}
@@ -311,25 +316,25 @@ export default function Header({
               </div>
 
               {/* Custom Passcode Form */}
-              <form onSubmit={handleUpdatePasscode} className="pt-3 border-t border-slate-100">
-                <label className="block text-xs font-extrabold text-slate-700 mb-1.5">Set Custom Passcode</label>
+              <form onSubmit={handleUpdatePasscode} className="pt-2 border-t border-slate-100">
+                <label className="block text-xs font-bold text-slate-700 mb-1">Set Custom Passcode</label>
                 <div className="flex items-center gap-2">
                   <input
                     type="text"
                     value={customPasscode}
                     onChange={(e) => setCustomPasscode(e.target.value)}
                     placeholder="Enter new 4-12 char PIN"
-                    className="flex-1 px-3.5 py-2.5 bg-slate-50 border border-slate-200/80 rounded-xl text-xs font-mono font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-purple-500"
                   />
                   <button
                     type="submit"
-                    className="px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-extrabold text-xs rounded-xl transition-all shadow-xs cursor-pointer active:scale-95"
+                    className="px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-xl transition-all shadow-xs"
                   >
-                    Save PIN
+                    Save
                   </button>
                 </div>
                 {passcodeMsg && (
-                  <p className="text-[11px] font-bold mt-2 text-slate-700">{passcodeMsg}</p>
+                  <p className="text-[11px] font-bold mt-1.5 text-slate-700">{passcodeMsg}</p>
                 )}
               </form>
             </div>

@@ -690,7 +690,7 @@ function restoreExistingSessions() {
 }
 
 // Middleware: attach user's session instance to every request
-app.use((req, res, next) => {
+app.use(async (req, res, next) => {
   if (req.path === '/ping') return next();
 
   const rawId = req.headers['x-session-id'] || req.query.sessionId;
@@ -703,7 +703,18 @@ app.use((req, res, next) => {
 
   const session = getOrCreateSession(rawId.trim());
 
-  // Binds client passcode if session is fresh
+  // Hydrate passcode & metadata from Cloud Firestore if session was marked fresh
+  if (session.isFresh) {
+    try {
+      const meta = await loadSessionMetaFromFirestore(session.sessionId);
+      if (meta && meta.passcode) {
+        session.passcode = String(meta.passcode).trim();
+        delete session.isFresh;
+      }
+    } catch (e) {}
+  }
+
+  // Binds client passcode ONLY IF session is genuinely fresh (new creation)
   const clientPasscode = req.headers['x-session-passcode'] || req.query.passcode;
   if (clientPasscode && typeof clientPasscode === 'string' && clientPasscode.trim().length >= 4) {
     if (session.isFresh) {
@@ -771,9 +782,19 @@ app.get('/api/status', (req, res) => {
   });
 });
 
-app.post('/api/auth/verify-passcode', (req, res) => {
+app.post('/api/auth/verify-passcode', async (req, res) => {
   const session = req.sessionInstance;
   const { passcode } = req.body || {};
+
+  if (session && session.isFresh) {
+    try {
+      const meta = await loadSessionMetaFromFirestore(session.sessionId);
+      if (meta && meta.passcode) {
+        session.passcode = String(meta.passcode).trim();
+        delete session.isFresh;
+      }
+    } catch (e) {}
+  }
 
   const isValid = Boolean(
     session.passcode &&
