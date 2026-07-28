@@ -132,6 +132,7 @@ function getOrCreateSession(rawSessionId) {
   // Load local store & Firestore store for this session
   loadSessionStoreFromDisk(sessionInstance);
   loadSessionFromFirestore(sessionInstance);
+  syncSessionMetaToFirestore(sessionInstance.sessionId, sessionInstance.passcode, sessionInstance.clientState).catch(() => null);
 
   // Initialize WhatsApp Baileys Socket for this session
   initBaileysSocketForSession(sessionInstance);
@@ -150,9 +151,6 @@ function loadSessionStoreFromDisk(session) {
       } else {
         saveSessionStoreToDisk(session);
       }
-      if (data.clientState && data.clientState.status) {
-        session.clientState = { ...session.clientState, ...data.clientState };
-      }
       if (Array.isArray(data.chats)) {
         data.chats.forEach(c => {
           if (c && c.id) {
@@ -160,9 +158,6 @@ function loadSessionStoreFromDisk(session) {
             session.chatsMap.set(c.id, c);
           }
         });
-        if (session.chatsMap.size > 0) {
-          session.clientState.status = 'READY';
-        }
       }
       if (data.messages && typeof data.messages === 'object') {
         Object.entries(data.messages).forEach(([jid, msgs]) => {
@@ -187,7 +182,6 @@ function saveSessionStoreToDisk(session) {
   try {
     const data = {
       passcode: session.passcode,
-      clientState: session.clientState,
       chats: Array.from(session.chatsMap.values()),
       messages: Object.fromEntries(session.messagesMap),
       tasks: Array.from(session.tasksMap.values())
@@ -202,17 +196,9 @@ function saveSessionStoreToDisk(session) {
 async function loadSessionFromFirestore(session) {
   try {
     const meta = await loadSessionMetaFromFirestore(session.sessionId);
-    if (meta) {
-      if (meta.passcode) {
-        session.passcode = String(meta.passcode).trim();
-        delete session.isFresh;
-      }
-      if (meta.status === 'READY' || meta.status === 'AUTHENTICATED') {
-        session.clientState.status = 'READY';
-      }
-      if (meta.userInfo) {
-        session.clientState.userInfo = meta.userInfo;
-      }
+    if (meta && meta.passcode) {
+      session.passcode = String(meta.passcode).trim();
+      delete session.isFresh;
     }
 
     const firestoreTasks = await loadTasksFromFirestore(session.sessionId);
@@ -234,7 +220,6 @@ async function loadSessionFromFirestore(session) {
           }
         }
       }
-      session.clientState.status = 'READY';
     }
     saveSessionStoreToDisk(session);
   } catch (err) {
@@ -705,7 +690,7 @@ function restoreExistingSessions() {
 }
 
 // Middleware: attach user's session instance to every request
-app.use(async (req, res, next) => {
+app.use((req, res, next) => {
   if (req.path === '/ping') return next();
 
   const rawId = req.headers['x-session-id'] || req.query.sessionId;
@@ -717,27 +702,15 @@ app.use(async (req, res, next) => {
   }
 
   const session = getOrCreateSession(rawId.trim());
+
+  // Binds client passcode if session is fresh
   const clientPasscode = req.headers['x-session-passcode'] || req.query.passcode;
-  const clientPassStr = clientPasscode && typeof clientPasscode === 'string' ? clientPasscode.trim() : '';
-
-  // Check Firestore if session is fresh OR if memory passcode doesn't match clientPasscode
-  if (session.isFresh || (clientPassStr && clientPassStr.length >= 4 && String(session.passcode).trim() !== clientPassStr)) {
-    try {
-      const meta = await loadSessionMetaFromFirestore(session.sessionId);
-      if (meta && meta.passcode) {
-        session.passcode = String(meta.passcode).trim();
-        delete session.isFresh;
-        saveSessionStoreToDisk(session);
-      }
-    } catch (e) {}
-  }
-
-  // Binds client passcode ONLY IF session is genuinely fresh (brand new creation)
-  if (clientPassStr && clientPassStr.length >= 4 && session.isFresh) {
-    session.passcode = clientPassStr;
-    delete session.isFresh;
-    saveSessionStoreToDisk(session);
-    syncSessionMetaToFirestore(session.sessionId, session.passcode, session.clientState).catch(() => null);
+  if (clientPasscode && typeof clientPasscode === 'string' && clientPasscode.trim().length >= 4) {
+    if (session.isFresh) {
+      session.passcode = clientPasscode.trim();
+      delete session.isFresh;
+      saveSessionStoreToDisk(session);
+    }
   }
 
   req.sessionInstance = session;
@@ -752,12 +725,10 @@ function verifyPasscodeAuth(req, res, next) {
   }
 
   const clientPasscode = req.headers['x-session-passcode'] || req.query.passcode;
-  const clientPassStr = clientPasscode && typeof clientPasscode === 'string' ? clientPasscode.trim() : '';
-
   const isValid = Boolean(
     session.passcode &&
-    clientPassStr &&
-    String(session.passcode).trim() === clientPassStr
+    clientPasscode &&
+    String(clientPasscode).trim() === String(session.passcode).trim()
   );
 
   if (!isValid) {
@@ -772,28 +743,14 @@ function verifyPasscodeAuth(req, res, next) {
 }
 
 // --- Public Auth Endpoints ---
-app.get('/api/status', async (req, res) => {
+app.get('/api/status', (req, res) => {
   const session = req.sessionInstance;
   const clientPasscode = req.headers['x-session-passcode'] || req.query.passcode;
-  const clientPassStr = clientPasscode && typeof clientPasscode === 'string' ? clientPasscode.trim() : '';
-
-  let isUnlocked = Boolean(
+  const isUnlocked = Boolean(
     session.passcode &&
-    clientPassStr &&
-    String(session.passcode).trim() === clientPassStr
+    clientPasscode &&
+    String(clientPasscode).trim() === String(session.passcode).trim()
   );
-
-  if (!isUnlocked && clientPassStr && clientPassStr.length >= 4) {
-    try {
-      const meta = await loadSessionMetaFromFirestore(session.sessionId);
-      if (meta && meta.passcode && String(meta.passcode).trim() === clientPassStr) {
-        session.passcode = String(meta.passcode).trim();
-        delete session.isFresh;
-        saveSessionStoreToDisk(session);
-        isUnlocked = true;
-      }
-    } catch (e) {}
-  }
 
   if (!isUnlocked) {
     return res.json({
@@ -814,39 +771,15 @@ app.get('/api/status', async (req, res) => {
   });
 });
 
-app.post('/api/auth/verify-passcode', async (req, res) => {
+app.post('/api/auth/verify-passcode', (req, res) => {
   const session = req.sessionInstance;
   const { passcode } = req.body || {};
-  const inputPass = passcode ? String(passcode).trim() : '';
 
-  if (!inputPass || inputPass.length < 4) {
-    return res.status(400).json({ success: false, error: 'Passcode must be at least 4 characters long.' });
-  }
-
-  // Check 1: Match against current memory or local disk passcode
-  let isValid = Boolean(session.passcode && String(session.passcode).trim() === inputPass);
-
-  // Check 2: If not matching, check Cloud Firestore for saved session passcode!
-  if (!isValid) {
-    try {
-      const meta = await loadSessionMetaFromFirestore(session.sessionId);
-      if (meta && meta.passcode && String(meta.passcode).trim() === inputPass) {
-        session.passcode = String(meta.passcode).trim();
-        delete session.isFresh;
-        saveSessionStoreToDisk(session);
-        isValid = true;
-      }
-    } catch (e) {}
-  }
-
-  // Check 3: If session is fresh (first user logging into this Session ID), bind this passcode!
-  if (!isValid && session && session.isFresh) {
-    session.passcode = inputPass;
-    delete session.isFresh;
-    saveSessionStoreToDisk(session);
-    syncSessionMetaToFirestore(session.sessionId, session.passcode, session.clientState).catch(() => null);
-    isValid = true;
-  }
+  const isValid = Boolean(
+    session.passcode &&
+    passcode &&
+    String(passcode).trim() === String(session.passcode).trim()
+  );
 
   if (!isValid) {
     return res.status(401).json({ success: false, error: 'Invalid session passcode. Access denied.' });
@@ -868,13 +801,8 @@ app.post('/api/auth/set-passcode', verifyPasscodeAuth, (req, res) => {
     return res.status(400).json({ error: 'Passcode must be at least 4 characters long.' });
   }
 
-  const cleanPasscode = String(newPasscode).trim();
-  session.passcode = cleanPasscode;
-  delete session.isFresh;
-
+  session.passcode = String(newPasscode).trim();
   saveSessionStoreToDisk(session);
-  syncSessionMetaToFirestore(session.sessionId, cleanPasscode, session.clientState).catch(() => null);
-
   res.json({ success: true, passcode: session.passcode, message: 'Passcode updated successfully!' });
 });
 
