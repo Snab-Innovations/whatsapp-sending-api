@@ -521,13 +521,25 @@ export default function AIAnalyticsPage({ tasks: initialTasks = [], onJumpToChat
                         <span
                           className={`px-2.5 py-1 rounded-lg text-[10px] font-extrabold uppercase tracking-wide inline-flex items-center gap-1 ${
                             task.priority === 'HIGH'
-                              ? 'bg-rose-500/20 text-rose-400 border border-rose-500/40'
+                              ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
                               : task.priority === 'MEDIUM'
-                              ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40'
-                              : 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/40'
+                              ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                              : 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40'
                           }`}
                         >
-                          {task.priority === 'HIGH' ? '🔥 HIGH' : task.priority === 'MEDIUM' ? '⚡ MED' : '🔹 LOW'}
+                          {task.priority === 'HIGH' ? (
+                            <>
+                              <ShieldAlert className="w-3 h-3 text-rose-400" /> HIGH
+                            </>
+                          ) : task.priority === 'MEDIUM' ? (
+                            <>
+                              <Zap className="w-3 h-3 text-amber-400" /> MED
+                            </>
+                          ) : (
+                            <>
+                              <Clock className="w-3 h-3 text-cyan-400" /> LOW
+                            </>
+                          )}
                         </span>
                       </td>
 

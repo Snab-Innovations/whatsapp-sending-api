@@ -1,5 +1,19 @@
 import React from 'react';
-import { MessageSquare, RefreshCw, LogOut, Wifi, WifiOff, Loader2, Plus, Sparkles, Columns, Bot, BarChart3 } from 'lucide-react';
+import {
+  LayoutDashboard,
+  MessageSquare,
+  RefreshCw,
+  LogOut,
+  Wifi,
+  WifiOff,
+  Loader2,
+  Plus,
+  Sparkles,
+  Columns,
+  Bot,
+  BarChart3,
+  FolderKanban
+} from 'lucide-react';
 
 export default function Header({
   clientState,
@@ -49,35 +63,50 @@ export default function Header({
   return (
     <header className="h-16 bg-[#111b21] border-b border-[#222d34] px-4 flex items-center justify-between shrink-0 select-none">
       {/* Left Logo & Brand */}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-4 cursor-pointer" onClick={() => onTabChange('DASHBOARD')}>
         <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 via-teal-500 to-cyan-500 flex items-center justify-center shadow-lg shadow-emerald-500/20">
           <Bot className="w-6 h-6 text-[#0b141a]" />
         </div>
         <div>
           <h1 className="font-bold text-base text-[#e9edef] flex items-center gap-2">
-            WhatsApp Gemini AI Workspace
+            WhatsApp Gemini AI Intelligence
             <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-purple-950/80 text-purple-300 border border-purple-500/40 flex items-center gap-1">
               <Sparkles className="w-3 h-3 text-purple-400 animate-pulse" /> Gemini 1.5
             </span>
           </h1>
-          <p className="text-xs text-[#8696a0]">Real-Time Message Analysis & Task Planner</p>
+          <p className="text-xs text-[#8696a0]">Executive Task & Message Intelligence Center</p>
         </div>
       </div>
 
       {/* Center Navigation Mode Switcher */}
       <div className="hidden lg:flex items-center bg-[#0b141a] p-1 rounded-xl border border-[#222d34]">
+        {/* Main Dashboard */}
         <button
-          onClick={() => onTabChange('WORKSPACE')}
+          onClick={() => onTabChange('DASHBOARD')}
           className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-            activeTab === 'WORKSPACE'
-              ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md shadow-emerald-950/40'
+            activeTab === 'DASHBOARD'
+              ? 'bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 text-white shadow-md shadow-emerald-950/40'
               : 'text-[#8696a0] hover:text-[#e9edef] hover:bg-[#202c33]'
           }`}
         >
-          <MessageSquare className="w-4 h-4" />
-          ⚡ Live Workspace
+          <LayoutDashboard className="w-4 h-4 text-emerald-400" />
+          Main Dashboard
         </button>
 
+        {/* WhatsApp Chats */}
+        <button
+          onClick={() => onTabChange('CHATS')}
+          className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+            activeTab === 'CHATS' || activeTab === 'WORKSPACE'
+              ? 'bg-gradient-to-r from-teal-600 to-emerald-600 text-white shadow-md shadow-teal-950/40'
+              : 'text-[#8696a0] hover:text-[#e9edef] hover:bg-[#202c33]'
+          }`}
+        >
+          <MessageSquare className="w-4 h-4 text-teal-400" />
+          WhatsApp Chats
+        </button>
+
+        {/* AI Task Board */}
         <button
           onClick={() => onTabChange('KANBAN')}
           className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
@@ -86,8 +115,8 @@ export default function Header({
               : 'text-[#8696a0] hover:text-[#e9edef] hover:bg-[#202c33]'
           }`}
         >
-          <Columns className="w-4 h-4" />
-          📋 AI Task Planner
+          <FolderKanban className="w-4 h-4 text-purple-400" />
+          Task Board
           {taskCount > 0 && (
             <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-purple-400 text-purple-950 font-bold">
               {taskCount}
@@ -95,6 +124,7 @@ export default function Header({
           )}
         </button>
 
+        {/* Executive Analytics */}
         <button
           onClick={() => onTabChange('ANALYTICS')}
           className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
@@ -103,8 +133,8 @@ export default function Header({
               : 'text-[#8696a0] hover:text-[#e9edef] hover:bg-[#202c33]'
           }`}
         >
-          <BarChart3 className="w-4 h-4" />
-          📊 AI Analytics & Report
+          <BarChart3 className="w-4 h-4 text-cyan-400" />
+          Executive Analytics
         </button>
       </div>
 

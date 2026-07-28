@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Header from './components/Header';
+import MainDashboard from './components/MainDashboard';
 import QRModal from './components/QRModal';
 import ChatList from './components/ChatList';
 import ChatWindow from './components/ChatWindow';
@@ -36,7 +37,7 @@ export default function App() {
     error: null
   });
 
-  const [activeTab, setActiveTab] = useState('WORKSPACE'); // 'WORKSPACE' | 'KANBAN' | 'ANALYTICS'
+  const [activeTab, setActiveTab] = useState('DASHBOARD'); // 'DASHBOARD' | 'CHATS' | 'KANBAN' | 'ANALYTICS'
   const [chats, setChats] = useState([]);
   const [activeChat, setActiveChat] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -110,7 +111,7 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  // Fetch chats and tasks when status changes to READY or when tab/window comes into view
+  // Fetch chats and tasks when status changes to READY or when window comes into view
   useEffect(() => {
     if (clientState.status === 'READY') {
       fetchChats();
@@ -223,23 +224,23 @@ export default function App() {
         unreadCount: 0,
         timestamp: res.message.timestamp,
         lastMessage: {
-          body: res.message.body,
+          body: messageText,
           timestamp: res.message.timestamp,
           fromMe: true
-        },
-        profilePicUrl: null
+        }
       };
 
-      setChats((prevChats) => {
-        const exists = prevChats.some(c => c.id === targetJid);
+      setChats((prev) => {
+        const exists = prev.some(c => isSameChatId(c.id, targetJid));
         if (exists) {
-          return prevChats.map(c => c.id === targetJid ? { ...c, timestamp: res.message.timestamp, lastMessage: newChatObj.lastMessage } : c);
+          return prev.map(c => isSameChatId(c.id, targetJid) ? newChatObj : c).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
         }
-        return [newChatObj, ...prevChats];
+        return [newChatObj, ...prev];
       });
 
       handleSelectChat(newChatObj);
       setIsNewChatModalOpen(false);
+      setActiveTab('CHATS');
     }
   };
 
@@ -270,7 +271,7 @@ export default function App() {
       const fallbackChat = { id: chatId, name: chatId.split('@')[0], isGroup: false };
       handleSelectChat(fallbackChat);
     }
-    setActiveTab('WORKSPACE');
+    setActiveTab('CHATS');
   };
 
   const handleLogout = async () => {
@@ -322,7 +323,20 @@ export default function App() {
       />
 
       <main className="flex-1 flex overflow-hidden relative">
-        {activeTab === 'WORKSPACE' && (
+        {activeTab === 'DASHBOARD' && (
+          <MainDashboard
+            tasks={tasks}
+            chats={chats}
+            messages={messages}
+            onSelectChat={handleSelectChat}
+            onJumpToChat={handleJumpToChat}
+            onOpenNewChat={() => setIsNewChatModalOpen(true)}
+            onTabChange={setActiveTab}
+            onRefreshTasks={fetchTasks}
+          />
+        )}
+
+        {(activeTab === 'CHATS' || activeTab === 'WORKSPACE') && (
           <>
             <ChatList
               chats={chats}
