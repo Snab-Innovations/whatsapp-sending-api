@@ -91,7 +91,10 @@ export default function MainDashboard({
   const topMessagesWithVerdicts = [];
   chats.slice(0, 8).forEach((chat) => {
     if (chat.lastMessage && chat.lastMessage.body) {
-      const associatedTask = tasks.find(t => t.chatId === chat.id || (t.chatName && t.chatName === chat.name));
+      const associatedTask = tasks.find(t =>
+        (t.chatId === chat.id || (t.chatName && t.chatName === chat.name)) &&
+        (t.originalMessage === chat.lastMessage.body || t.title === chat.lastMessage.body)
+      );
       topMessagesWithVerdicts.push({
         id: `msg-${chat.id}`,
         chatId: chat.id,

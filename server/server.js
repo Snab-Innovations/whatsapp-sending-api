@@ -92,7 +92,7 @@ function loadStoreFromDisk() {
         data.tasks.forEach(t => {
           if (!t || !t.id) return;
           const lowerMsg = (t.originalMessage || t.title || '').toLowerCase().trim();
-          const isCasualGreeting = /^(good\s*(morning|afternoon|evening|night)|hi|hello|hey|gm|gn|hie|heyy+|how\s*are\s*you|thanks|thank\s*you|ok|okay|k|cool|great|nice|bye|take\s*care|tc|welcome)[!.,\s]*$/i.test(lowerMsg);
+          const isCasualGreeting = /^(good\s*(morning|afternoon|evening|night)|hi+|hello+|hey+|gm|gn|hie|heyy+|how\s*are\s*you|thanks|thank\s*you|ok|okay|k|cool|great|nice|bye|take\s*care|tc|welcome|kay\s*(krte|karta|krto|chalel|karte|chalalay)|kya\s*(kar\s*rahe\s*ho|kr\s*rhe\s*ho|krte|kar\s*raha\s*h|bolte|chal\s*raha\s*hai)|whats\s*up|what's\s*up|sup|wbu|wby|hru|i\s*love\s*you)[!.,\s\u1f600-\u1f64f\u1f300-\u1f5ff\u1f680-\u1f6ff\u2600-\u26ff]*$/i.test(lowerMsg);
           if (isCasualGreeting) return;
 
           const dedupKey = `${t.chatId || ''}::${t.originalMessage || t.title}`;
