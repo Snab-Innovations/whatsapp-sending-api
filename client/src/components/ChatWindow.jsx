@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, User, Users, MessageSquare, Search, CheckCheck, Loader2, Sparkles } from 'lucide-react';
+import { Send, User, Users, MessageSquare, Search, CheckCheck, Loader2, Sparkles, ShieldAlert, Zap, Clock, Calendar, AlertTriangle, Briefcase, CreditCard, CheckCircle2 } from 'lucide-react';
 import { getAIReplySuggestions } from '../services/api';
 
 export default function ChatWindow({ chat, messages, loadingMessages, onSendMessage }) {
@@ -53,49 +53,53 @@ export default function ChatWindow({ chat, messages, loadingMessages, onSendMess
     return new Date(ts * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
-  const renderAIBadges = (aiAnalysis) => {
+  const renderAIBadges = (aiAnalysis, fromMe) => {
     if (!aiAnalysis) return null;
 
-    const { hasTask, priority, category, dueDate, sentiment } = aiAnalysis;
+    const { hasTask, priority, category, dueDate, verdict } = aiAnalysis;
 
     return (
-      <div className="mt-2 pt-2 border-t border-white/10 flex flex-wrap items-center gap-1.5 text-[10px]">
+      <div className={`mt-2.5 pt-2 border-t flex flex-wrap items-center gap-1.5 text-[10px] ${fromMe ? 'border-white/20 text-white' : 'border-slate-200 text-slate-700'}`}>
         {hasTask && (
-          <span className="px-2 py-0.5 rounded font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1">
-            📌 Task: {aiAnalysis.taskTitle || 'Action Item'}
+          <span className={`px-2 py-0.5 rounded-full font-extrabold flex items-center gap-1 ${fromMe ? 'bg-white/20 text-white' : 'bg-purple-100 text-purple-800'}`}>
+            <Sparkles className="w-3 h-3 text-pink-400" /> Action Item Discovered
           </span>
         )}
 
         {priority && (
           <span
-            className={`px-1.5 py-0.5 rounded font-bold ${
+            className={`px-2 py-0.5 rounded-full font-extrabold flex items-center gap-1 ${
               priority === 'HIGH'
-                ? 'bg-red-500/20 text-red-300 border border-red-500/40'
+                ? fromMe ? 'bg-rose-500/30 text-rose-100' : 'bg-rose-100 text-rose-700 border border-rose-200'
                 : priority === 'MEDIUM'
-                ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                : 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
+                ? fromMe ? 'bg-amber-500/30 text-amber-100' : 'bg-amber-100 text-amber-800 border border-amber-200'
+                : fromMe ? 'bg-sky-500/30 text-sky-100' : 'bg-sky-100 text-sky-700 border border-sky-200'
             }`}
           >
-            🔥 {priority}
+            {priority === 'HIGH' ? <ShieldAlert className="w-3 h-3 text-rose-500" /> : priority === 'MEDIUM' ? <Zap className="w-3 h-3 text-amber-500" /> : <Clock className="w-3 h-3 text-sky-500" />}
+            {priority}
           </span>
         )}
 
         {category && (
-          <span className="px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30 font-medium">
-            🏷️ {category}
+          <span className={`px-2 py-0.5 rounded-full font-bold ${fromMe ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-700 border border-slate-200'}`}>
+            {category}
           </span>
         )}
 
         {dueDate && (
-          <span className="px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-500/30 font-mono">
-            📅 {dueDate}
+          <span className={`px-2 py-0.5 rounded-full font-mono ${fromMe ? 'bg-white/20 text-white' : 'bg-amber-50 text-amber-800 border border-amber-200'}`}>
+            <Clock className="w-3 h-3 inline mr-1 text-amber-600" /> {dueDate}
           </span>
         )}
 
-        {sentiment && sentiment !== 'Neutral' && (
-          <span className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-medium">
-            💭 {sentiment}
-          </span>
+        {verdict && (
+          <div className={`w-full mt-1.5 p-2 rounded-xl text-[11px] leading-snug font-medium ${fromMe ? 'bg-white/15 text-white border border-white/20' : 'bg-purple-50 text-purple-900 border border-purple-200'}`}>
+            <span className="font-extrabold flex items-center gap-1 mb-0.5">
+              <Sparkles className="w-3 h-3 text-pink-500" /> AI Verdict:
+            </span>
+            {verdict}
+          </div>
         )}
       </div>
     );
@@ -103,46 +107,33 @@ export default function ChatWindow({ chat, messages, loadingMessages, onSendMess
 
   if (!chat) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center chat-pattern border-l border-[#222d34] text-center p-6 select-none">
-        <div className="w-20 h-20 rounded-3xl bg-gradient-to-tr from-emerald-500 to-teal-600 border border-[#222d34] flex items-center justify-center mb-4 shadow-xl text-[#0b141a]">
-          <MessageSquare className="w-10 h-10 fill-current" />
+      <div className="flex-1 flex flex-col items-center justify-center bg-[#fafafa] chat-pattern p-6 text-center text-slate-400 select-none">
+        <div className="w-20 h-20 rounded-full ig-gradient-bg flex items-center justify-center mb-4 shadow-lg shadow-pink-500/20">
+          <MessageSquare className="w-10 h-10 text-white stroke-[1.5]" />
         </div>
-        <h2 className="text-xl font-bold text-[#e9edef]">WhatsApp Gemini AI Command Center</h2>
-        <p className="text-sm text-[#8696a0] max-w-sm mt-2">
-          Select a conversation from the sidebar to inspect AI action items, tasks, and smart reply suggestions.
+        <h3 className="text-xl font-black text-slate-800 mb-1">Your Direct Messages</h3>
+        <p className="text-xs text-slate-500 max-w-sm">
+          Select a chat from the sidebar to view conversation history and automated Gemini AI action verdicts.
         </p>
-        <div className="mt-6 inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-purple-950/60 border border-purple-500/40 text-xs text-purple-300 font-medium">
-          <Sparkles className="w-4 h-4 text-purple-400 animate-pulse" />
-          Gemini 1.5 Real-Time AI Inspector Active
-        </div>
       </div>
     );
   }
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-[#0b141a] chat-pattern border-l border-[#222d34]">
-      {/* Active Chat Header */}
-      <div className="h-16 bg-[#111b21] border-b border-[#222d34] px-4 flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-3">
-          {chat.profilePicUrl ? (
-            <img
-              src={chat.profilePicUrl}
-              alt={chat.name}
-              className="w-10 h-10 rounded-full object-cover border border-[#222d34]"
-            />
-          ) : (
-            <div
-              className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm ${
-                chat.isGroup ? 'bg-[#202c33] text-[#00a884]' : 'bg-[#00a884]/20 text-[#00a884]'
-              }`}
-            >
-              {chat.isGroup ? <Users className="w-5 h-5" /> : <User className="w-5 h-5" />}
+    <div className="flex-1 flex flex-col h-full bg-[#fafafa] border-l border-slate-200 overflow-hidden">
+      {/* Instagram Direct Header */}
+      <div className="h-16 bg-white border-b border-slate-200 px-4 sm:px-6 flex items-center justify-between shrink-0 shadow-xs z-10">
+        <div className="flex items-center gap-3 min-w-0">
+          {/* Instagram Story Gradient Ring Avatar */}
+          <div className="p-[2px] rounded-full ig-gradient-bg shadow-xs shrink-0">
+            <div className="w-9 h-9 rounded-full bg-white flex items-center justify-center font-black text-xs text-slate-800">
+              {chat.isGroup ? <Users className="w-4 h-4 text-purple-600" /> : chat.name ? chat.name.charAt(0).toUpperCase() : 'W'}
             </div>
-          )}
-          <div>
-            <h3 className="font-semibold text-[#e9edef] text-sm leading-tight">{chat.name}</h3>
-            <p className="text-[11px] text-[#8696a0]">
-              {chat.isGroup ? 'Group Conversation' : 'Direct Message'}
+          </div>
+          <div className="min-w-0">
+            <h2 className="font-black text-sm text-slate-900 truncate leading-tight">{chat.name}</h2>
+            <p className="text-[11px] text-slate-500 font-mono truncate">
+              {chat.isGroup ? 'Group Conversation' : chat.id}
             </p>
           </div>
         </div>
@@ -151,62 +142,88 @@ export default function ChatWindow({ chat, messages, loadingMessages, onSendMess
           <button
             onClick={handleFetchAIReplys}
             disabled={loadingAiReplies}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-semibold shadow-md transition-all disabled:opacity-50"
+            className="px-3.5 py-1.5 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-700 font-extrabold text-xs transition-all border border-purple-200 flex items-center gap-1.5 shadow-xs disabled:opacity-50"
           >
             {loadingAiReplies ? (
-              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-purple-600" />
             ) : (
-              <Sparkles className="w-3.5 h-3.5 text-yellow-300" />
+              <Sparkles className="w-3.5 h-3.5 text-pink-500 animate-pulse" />
             )}
-            ⚡ AI Draft Reply
+            AI Smart Replies
           </button>
         </div>
       </div>
 
-      {/* Message Feed */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-3">
-        {loadingMessages ? (
-          <div className="flex items-center justify-center h-full">
-            <div className="flex flex-col items-center gap-2 text-[#8696a0]">
-              <Loader2 className="w-6 h-6 animate-spin text-[#00a884]" />
-              <span className="text-xs">Loading message history...</span>
-            </div>
+      {/* AI Smart Reply Suggestions Bar */}
+      {aiReplies.length > 0 && (
+        <div className="bg-gradient-to-r from-purple-50 via-pink-50 to-amber-50 border-b border-purple-200 px-4 py-2.5 flex items-center gap-2 overflow-x-auto shadow-xs">
+          <span className="text-xs font-black text-purple-800 shrink-0 flex items-center gap-1">
+            <Sparkles className="w-3.5 h-3.5 text-pink-500" /> Smart Suggestions:
+          </span>
+          {aiReplies.map((reply, idx) => (
+            <button
+              key={idx}
+              onClick={() => setInputText(reply)}
+              className="text-xs bg-white hover:bg-purple-100 text-slate-800 font-semibold px-3 py-1 rounded-xl border border-purple-200 shadow-xs transition-all shrink-0 hover:scale-105 active:scale-95"
+            >
+              "{reply}"
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Message History Feed */}
+      <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 chat-pattern">
+        {loadingMessages && messages.length === 0 ? (
+          <div className="h-full flex flex-col items-center justify-center text-slate-400 text-xs gap-2">
+            <Loader2 className="w-6 h-6 animate-spin text-[#0095f6]" />
+            <span>Loading message thread...</span>
           </div>
         ) : messages.length === 0 ? (
-          <div className="flex items-center justify-center h-full text-xs text-[#8696a0]">
-            No messages found in this chat.
+          <div className="h-full flex flex-col items-center justify-center text-slate-400 text-xs space-y-2">
+            <MessageSquare className="w-8 h-8 text-slate-300 stroke-[1.5]" />
+            <p className="font-bold text-slate-600">No messages in this chat yet.</p>
+            <p className="text-[11px]">Send a message below to start the conversation.</p>
           </div>
         ) : (
-          messages.map((msg, index) => {
-            const msgKey =
-              typeof msg.id === 'object'
-                ? msg.id._serialized || String(index)
-                : String(msg.id || index);
+          messages.map((msg) => {
+            const fromMe = Boolean(msg.fromMe);
 
             return (
-              <div key={msgKey} className={`flex flex-col ${msg.fromMe ? 'items-end' : 'items-start'}`}>
+              <div
+                key={msg.id}
+                className={`flex flex-col ${fromMe ? 'items-end' : 'items-start'}`}
+              >
                 <div
-                  className={`max-w-[80%] sm:max-w-[70%] rounded-2xl px-4 py-2.5 text-sm shadow-md relative group ${
-                    msg.fromMe
-                      ? 'bg-[#005c4b] text-[#e9edef] rounded-tr-none'
-                      : 'bg-[#202c33] text-[#e9edef] rounded-tl-none border border-[#222d34]'
+                  className={`max-w-md sm:max-w-lg p-3.5 rounded-2xl shadow-xs transition-all relative ${
+                    fromMe
+                      ? 'bg-[#0095f6] text-white rounded-tr-xs'
+                      : 'bg-white border border-slate-200 text-slate-900 rounded-tl-xs'
                   }`}
                 >
-                  {/* Author name if group */}
-                  {chat.isGroup && !msg.fromMe && msg.author && (
-                    <p className="text-[10px] font-bold text-[#00a884] mb-0.5 truncate">
-                      {msg.author}
+                  {/* Sender Name in Group */}
+                  {chat.isGroup && !fromMe && msg.author && (
+                    <p className="text-[10px] font-black text-[#0095f6] mb-1 font-mono">
+                      {msg.author.split('@')[0]}
                     </p>
                   )}
 
-                  <p className="break-words whitespace-pre-wrap leading-relaxed">{msg.body}</p>
+                  {/* Body Text */}
+                  <p className="text-xs sm:text-sm whitespace-pre-wrap leading-relaxed font-normal">
+                    {msg.body}
+                  </p>
 
-                  {/* Gemini AI Action Metadata Badges */}
-                  {renderAIBadges(msg.aiAnalysis)}
+                  {/* AI Analysis Badges & Verdict */}
+                  {renderAIBadges(msg.aiAnalysis, fromMe)}
 
-                  <div className="flex items-center justify-end gap-1 text-[10px] text-[#8696a0] mt-1.5">
+                  {/* Timestamp & Status Indicator */}
+                  <div
+                    className={`flex items-center justify-end gap-1 text-[10px] mt-1 font-mono ${
+                      fromMe ? 'text-white/80' : 'text-slate-400'
+                    }`}
+                  >
                     <span>{formatMessageTime(msg.timestamp)}</span>
-                    {msg.fromMe && <CheckCheck className="w-3.5 h-3.5 text-[#00a884]" />}
+                    {fromMe && <CheckCheck className="w-3.5 h-3.5" />}
                   </div>
                 </div>
               </div>
@@ -216,40 +233,29 @@ export default function ChatWindow({ chat, messages, loadingMessages, onSendMess
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Gemini AI Smart Reply Pills */}
-      {aiReplies.length > 0 && (
-        <div className="px-3 py-2 bg-[#182229] border-t border-[#222d34] flex flex-wrap gap-2 animate-fadeIn">
-          <span className="text-[11px] font-bold text-purple-400 flex items-center gap-1 w-full mb-1">
-            <Sparkles className="w-3 h-3 text-purple-400" /> Gemini Smart Reply Suggestions:
-          </span>
-          {aiReplies.map((reply, idx) => (
-            <button
-              key={idx}
-              onClick={() => setInputText(reply)}
-              className="text-xs bg-[#202c33] hover:bg-purple-950/60 hover:border-purple-500/40 text-[#e9edef] px-3 py-1.5 rounded-lg border border-[#2a3942] transition-all text-left truncate max-w-full"
-            >
-              💬 {reply}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* Reply Input Composer */}
-      <form onSubmit={handleSend} className="p-3 bg-[#111b21] border-t border-[#222d34] flex items-center gap-2">
+      {/* Input Message Bar */}
+      <form onSubmit={handleSend} className="p-3 sm:p-4 bg-white border-t border-slate-200 flex items-center gap-3">
         <input
           type="text"
-          placeholder="Type a message or click AI Smart Reply above..."
+          placeholder="Message..."
           value={inputText}
           onChange={(e) => setInputText(e.target.value)}
-          className="flex-1 bg-[#202c33] text-[#e9edef] text-sm px-4 py-2.5 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#00a884] placeholder-[#8696a0]"
+          disabled={sending}
+          className="flex-1 bg-slate-100 border border-slate-200 text-slate-900 text-sm px-4 py-2.5 rounded-2xl focus:outline-none focus:ring-2 focus:ring-[#0095f6] placeholder-slate-400 font-medium disabled:opacity-50"
         />
 
         <button
           type="submit"
           disabled={!inputText.trim() || sending}
-          className="w-10 h-10 rounded-xl bg-[#00a884] hover:bg-[#008f6f] text-[#0b141a] flex items-center justify-center transition-colors disabled:opacity-40 disabled:hover:bg-[#00a884] shrink-0"
+          className="px-5 py-2.5 bg-[#0095f6] hover:bg-[#1877f2] disabled:opacity-40 text-white font-extrabold text-xs rounded-2xl transition-all shadow-md shadow-blue-500/20 flex items-center gap-1.5 shrink-0"
         >
-          {sending ? <Loader2 className="w-4 h-4 animate-spin text-[#0b141a]" /> : <Send className="w-4 h-4 fill-current" />}
+          {sending ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <>
+              <Send className="w-4 h-4" /> Send
+            </>
+          )}
         </button>
       </form>
     </div>

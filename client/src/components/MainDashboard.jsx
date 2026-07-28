@@ -21,8 +21,6 @@ import {
   AlertTriangle,
   CreditCard,
   FolderKanban,
-  Columns,
-  BarChart3,
   ListTodo,
   TrendingUp,
   Loader2
@@ -121,20 +119,20 @@ export default function MainDashboard({
     switch (priority) {
       case 'HIGH':
         return (
-          <span className="px-2.5 py-1 rounded-lg text-[10px] font-extrabold bg-rose-500/20 text-rose-300 border border-rose-500/40 flex items-center gap-1">
-            <ShieldAlert className="w-3 h-3 text-rose-400" /> HIGH
+          <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-rose-50 text-rose-600 border border-rose-200 flex items-center gap-1">
+            <ShieldAlert className="w-3 h-3 text-rose-500" /> HIGH
           </span>
         );
       case 'MEDIUM':
         return (
-          <span className="px-2.5 py-1 rounded-lg text-[10px] font-extrabold bg-amber-500/20 text-amber-300 border border-amber-500/40 flex items-center gap-1">
-            <Zap className="w-3 h-3 text-amber-400" /> MEDIUM
+          <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1">
+            <Zap className="w-3 h-3 text-amber-500" /> MEDIUM
           </span>
         );
       default:
         return (
-          <span className="px-2.5 py-1 rounded-lg text-[10px] font-extrabold bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 flex items-center gap-1">
-            <Clock className="w-3 h-3 text-cyan-400" /> LOW
+          <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-sky-50 text-sky-600 border border-sky-200 flex items-center gap-1">
+            <Clock className="w-3 h-3 text-sky-500" /> LOW
           </span>
         );
     }
@@ -143,47 +141,47 @@ export default function MainDashboard({
   const getCategoryIcon = (category) => {
     switch (category) {
       case 'Meeting':
-        return <Calendar className="w-3.5 h-3.5 text-purple-400" />;
+        return <Calendar className="w-3.5 h-3.5 text-purple-500" />;
       case 'Urgent':
-        return <AlertTriangle className="w-3.5 h-3.5 text-rose-400" />;
+        return <AlertTriangle className="w-3.5 h-3.5 text-rose-500" />;
       case 'Work':
-        return <Briefcase className="w-3.5 h-3.5 text-blue-400" />;
+        return <Briefcase className="w-3.5 h-3.5 text-blue-500" />;
       case 'Follow-up':
-        return <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />;
+        return <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />;
       case 'Payment':
-        return <CreditCard className="w-3.5 h-3.5 text-teal-400" />;
+        return <CreditCard className="w-3.5 h-3.5 text-teal-500" />;
       default:
         return <FolderKanban className="w-3.5 h-3.5 text-slate-400" />;
     }
   };
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-[#0b141a] text-[#e9edef] overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-6">
-      {/* 🚀 Main Executive Dashboard Banner */}
-      <div className="relative rounded-3xl bg-gradient-to-r from-emerald-950 via-slate-900 to-purple-950 border border-emerald-500/30 p-6 sm:p-8 shadow-2xl overflow-hidden">
-        <div className="absolute -top-20 -right-20 w-80 h-80 bg-emerald-500/15 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute -bottom-20 -left-20 w-80 h-80 bg-purple-500/15 rounded-full blur-3xl pointer-events-none" />
+    <div className="flex-1 flex flex-col h-full bg-[#fafafa] text-slate-900 overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-6">
+      {/* 🚀 Instagram Professional Main Hero Banner */}
+      <div className="relative rounded-3xl bg-white border border-slate-200 p-6 sm:p-8 shadow-sm overflow-hidden">
+        {/* Decorative subtle Instagram gradient accent line */}
+        <div className="absolute top-0 left-0 right-0 h-1.5 ig-gradient-bg" />
 
         <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div className="space-y-2">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-semibold backdrop-blur-md">
-              <Sparkles className="w-3.5 h-3.5 text-amber-300 animate-pulse" />
-              Main Executive Task & Intelligence Center
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-50 border border-purple-200 text-purple-700 text-xs font-bold shadow-xs">
+              <Sparkles className="w-3.5 h-3.5 text-pink-500" />
+              Instagram Executive Intelligence Center
             </div>
 
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight flex items-center gap-3">
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight flex items-center gap-3">
               WhatsApp AI Task & Action Dashboard
             </h1>
 
-            <p className="text-xs sm:text-sm text-[#8696a0] max-w-2xl leading-relaxed">
-              Consolidated view of all WhatsApp tasks, message AI verdicts, and critical deliverables processed by Google Gemini AI.
+            <p className="text-xs sm:text-sm text-slate-500 max-w-2xl leading-relaxed">
+              Consolidated Instagram-styled view of all WhatsApp tasks, message AI verdicts, and critical deliverables powered by Google Gemini AI.
             </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-3 shrink-0">
             <button
-              onClick={() => onTabChange('WORKSPACE')}
-              className="px-5 py-3 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-extrabold text-xs shadow-lg shadow-emerald-950/50 transition-all flex items-center gap-2"
+              onClick={() => onTabChange('CHATS')}
+              className="px-5 py-3 rounded-2xl bg-[#0095f6] hover:bg-[#1877f2] text-white font-extrabold text-xs shadow-md shadow-blue-500/20 transition-all flex items-center gap-2"
             >
               <MessageSquare className="w-4 h-4" />
               Open WhatsApp Chats ({chats.length})
@@ -192,7 +190,7 @@ export default function MainDashboard({
             <button
               onClick={handleAnalyzeAll}
               disabled={analyzingAll}
-              className="px-5 py-3 rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-extrabold text-xs shadow-lg shadow-purple-950/50 transition-all flex items-center gap-2 disabled:opacity-50"
+              className="px-5 py-3 rounded-2xl ig-gradient-bg text-white font-extrabold text-xs shadow-md shadow-pink-500/20 hover:opacity-95 transition-all flex items-center gap-2 disabled:opacity-50"
             >
               {analyzingAll ? (
                 <>
@@ -201,7 +199,7 @@ export default function MainDashboard({
                 </>
               ) : (
                 <>
-                  <Zap className="w-4 h-4 fill-current text-amber-300" />
+                  <Zap className="w-4 h-4 fill-current text-yellow-300" />
                   ⚡ Analyze All Messages
                 </>
               )}
@@ -210,135 +208,138 @@ export default function MainDashboard({
         </div>
 
         {analyzeReport && (
-          <div className="mt-4 pt-3 border-t border-emerald-500/20 text-xs font-mono text-emerald-400 flex items-center justify-between">
+          <div className="mt-4 pt-3 border-t border-slate-100 text-xs font-mono text-emerald-600 flex items-center justify-between">
             <span className="flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+              <CheckCircle2 className="w-4 h-4 text-emerald-500" />
               Bulk Analysis complete! Processed {analyzeReport.analyzedCount} messages across all WhatsApp chats.
             </span>
-            <span className="bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 px-2.5 py-0.5 rounded-full font-bold">
+            <span className="bg-emerald-50 border border-emerald-200 text-emerald-700 px-3 py-0.5 rounded-full font-bold">
               +{analyzeReport.newTasksExtracted} New Tasks Discovered
             </span>
           </div>
         )}
       </div>
 
-      {/* 📊 KPI Stat Cards Row (4 Cards) */}
+      {/* 📊 KPI Stat Cards Row (4 Cards - Pure White Instagram Style) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Card 1: Active To-Do Tasks */}
-        <div className="bg-[#111b21] border border-[#202c33] hover:border-purple-500/40 p-5 rounded-2xl shadow-xl transition-all group">
+        <div className="bg-white border border-slate-200 hover:border-purple-300 p-5 rounded-2xl shadow-sm transition-all group">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-bold text-[#8696a0] uppercase tracking-wider">Pending To-Do Tasks</span>
-            <div className="w-9 h-9 rounded-xl bg-purple-500/15 border border-purple-500/30 text-purple-400 flex items-center justify-center">
+            <span className="text-xs font-extrabold text-slate-500 uppercase tracking-wider">Pending Tasks</span>
+            <div className="w-9 h-9 rounded-xl bg-purple-50 border border-purple-200 text-purple-600 flex items-center justify-center">
               <ListTodo className="w-4 h-4" />
             </div>
           </div>
           <div className="flex items-baseline justify-between">
-            <h3 className="text-3xl font-extrabold text-white">{activeTasksCount}</h3>
-            <span className="text-xs text-purple-400 font-semibold">{totalTasksCount} total tasks</span>
+            <h3 className="text-3xl font-black text-slate-900">{activeTasksCount}</h3>
+            <span className="text-xs text-purple-600 font-bold">{totalTasksCount} total tasks</span>
           </div>
         </div>
 
         {/* Card 2: High Priority Urgent Items */}
-        <div className="bg-[#111b21] border border-rose-500/30 hover:border-rose-500/60 p-5 rounded-2xl shadow-xl transition-all group bg-gradient-to-b from-rose-950/15 to-[#111b21]">
+        <div className="bg-white border border-rose-200 hover:border-rose-300 p-5 rounded-2xl shadow-sm transition-all group bg-gradient-to-b from-rose-50/30 to-white">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-bold text-rose-400 uppercase tracking-wider flex items-center gap-1">
-              <ShieldAlert className="w-3.5 h-3.5 text-rose-400" /> High Priority Items
+            <span className="text-xs font-extrabold text-rose-600 uppercase tracking-wider flex items-center gap-1">
+              <ShieldAlert className="w-3.5 h-3.5 text-rose-500" /> High Priority Items
             </span>
-            <div className="w-9 h-9 rounded-xl bg-rose-500/20 border border-rose-500/40 text-rose-400 flex items-center justify-center">
+            <div className="w-9 h-9 rounded-xl bg-rose-50 border border-rose-200 text-rose-600 flex items-center justify-center">
               <AlertTriangle className="w-4 h-4" />
             </div>
           </div>
           <div className="flex items-baseline justify-between">
-            <h3 className="text-3xl font-extrabold text-rose-400">{highPriorityTasks.length}</h3>
-            <span className="text-xs text-rose-300 font-semibold">Immediate attention</span>
+            <h3 className="text-3xl font-black text-rose-600">{highPriorityTasks.length}</h3>
+            <span className="text-xs text-rose-500 font-bold">Immediate attention</span>
           </div>
         </div>
 
         {/* Card 3: Messages Monitored */}
-        <div className="bg-[#111b21] border border-[#202c33] hover:border-blue-500/40 p-5 rounded-2xl shadow-xl transition-all group">
+        <div className="bg-white border border-slate-200 hover:border-sky-300 p-5 rounded-2xl shadow-sm transition-all group">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-bold text-[#8696a0] uppercase tracking-wider">Active WhatsApp Feeds</span>
-            <div className="w-9 h-9 rounded-xl bg-blue-500/15 border border-blue-500/30 text-blue-400 flex items-center justify-center">
+            <span className="text-xs font-extrabold text-slate-500 uppercase tracking-wider">Active Direct Feeds</span>
+            <div className="w-9 h-9 rounded-xl bg-sky-50 border border-sky-200 text-[#0095f6] flex items-center justify-center">
               <MessageSquare className="w-4 h-4" />
             </div>
           </div>
           <div className="flex items-baseline justify-between">
-            <h3 className="text-3xl font-extrabold text-white">{chats.length}</h3>
-            <span className="text-xs text-blue-400 font-semibold">Connected channels</span>
+            <h3 className="text-3xl font-black text-slate-900">{chats.length}</h3>
+            <span className="text-xs text-[#0095f6] font-bold">Connected channels</span>
           </div>
         </div>
 
         {/* Card 4: Task Completion Velocity */}
-        <div className="bg-[#111b21] border border-[#202c33] hover:border-emerald-500/40 p-5 rounded-2xl shadow-xl transition-all group">
+        <div className="bg-white border border-slate-200 hover:border-emerald-300 p-5 rounded-2xl shadow-sm transition-all group">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-bold text-[#8696a0] uppercase tracking-wider">Completion Velocity</span>
-            <div className="w-9 h-9 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 flex items-center justify-center">
+            <span className="text-xs font-extrabold text-slate-500 uppercase tracking-wider">Completion Rate</span>
+            <div className="w-9 h-9 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-600 flex items-center justify-center">
               <TrendingUp className="w-4 h-4" />
             </div>
           </div>
           <div className="flex items-baseline justify-between">
-            <h3 className="text-3xl font-extrabold text-emerald-400">{completionRate}%</h3>
-            <span className="text-xs text-emerald-400 font-semibold">{completedTasksCount} finished</span>
+            <h3 className="text-3xl font-black text-emerald-600">{completionRate}%</h3>
+            <span className="text-xs text-emerald-600 font-bold">{completedTasksCount} finished</span>
           </div>
         </div>
       </div>
 
-      {/* 💬 Main Section 1: Recent Top Messages & AI Verdicts */}
-      <div className="bg-[#111b21] border border-[#202c33] rounded-3xl p-6 shadow-2xl space-y-4">
-        <div className="flex items-center justify-between border-b border-[#222d34] pb-3">
+      {/* 💬 Main Section 1: Recent Top Messages & AI Verdicts (Instagram Story/Direct Style) */}
+      <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4">
+        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
           <div>
-            <h2 className="text-lg font-bold text-white flex items-center gap-2.5">
-              <MessageSquare className="w-5 h-5 text-emerald-400" /> Recent Top Messages & AI Verdicts
+            <h2 className="text-lg font-extrabold text-slate-900 flex items-center gap-2.5">
+              <MessageSquare className="w-5 h-5 text-[#0095f6]" /> Recent Direct Messages & AI Verdicts
             </h2>
-            <p className="text-xs text-[#8696a0]">Latest incoming WhatsApp messages with AI decision summaries & verdicts</p>
+            <p className="text-xs text-slate-500">Latest incoming WhatsApp messages with AI decision summaries & verdicts</p>
           </div>
           <button
-            onClick={() => onTabChange('WORKSPACE')}
-            className="text-xs text-[#00a884] hover:underline font-bold flex items-center gap-1"
+            onClick={() => onTabChange('CHATS')}
+            className="text-xs text-[#0095f6] hover:underline font-extrabold flex items-center gap-1"
           >
-            View All Chats <ArrowUpRight className="w-3.5 h-3.5" />
+            View All Direct Chats <ArrowUpRight className="w-3.5 h-3.5" />
           </button>
         </div>
 
         {topMessagesWithVerdicts.length === 0 ? (
-          <div className="py-8 text-center text-[#8696a0] text-xs">
-            No message history recorded yet. Open WhatsApp Chats or send a message to populate.
+          <div className="py-8 text-center text-slate-400 text-xs">
+            No message history recorded yet. Open Direct Chats or send a message to populate.
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {topMessagesWithVerdicts.map((item) => (
               <div
                 key={item.id}
-                className="bg-[#182229] border border-[#222d34] hover:border-[#00a884]/40 p-4 rounded-2xl transition-all space-y-2.5 flex flex-col justify-between"
+                className="bg-slate-50/70 border border-slate-200 hover:border-slate-300 p-4 rounded-2xl transition-all space-y-3 flex flex-col justify-between"
               >
                 <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <div className="w-7 h-7 rounded-full bg-[#00a884]/20 border border-[#00a884]/30 text-[#00a884] flex items-center justify-center font-bold text-xs shrink-0">
-                        {item.isGroup ? <Users className="w-3.5 h-3.5" /> : <User className="w-3.5 h-3.5" />}
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      {/* Instagram Story Gradient Ring Avatar */}
+                      <div className="p-[2px] rounded-full ig-gradient-bg shadow-xs shrink-0">
+                        <div className="w-7 h-7 rounded-full bg-white text-slate-900 flex items-center justify-center font-black text-xs">
+                          {item.isGroup ? <Users className="w-3.5 h-3.5 text-purple-600" /> : item.chatName.charAt(0).toUpperCase()}
+                        </div>
                       </div>
-                      <h3 className="font-bold text-sm text-[#e9edef] truncate">{item.chatName}</h3>
+                      <h3 className="font-extrabold text-sm text-slate-900 truncate">{item.chatName}</h3>
                     </div>
-                    <span className="text-[11px] font-mono text-[#8696a0] shrink-0">
+                    <span className="text-[11px] font-mono text-slate-400 shrink-0">
                       {formatTime(item.timestamp)}
                     </span>
                   </div>
 
-                  <p className="text-xs text-[#e9edef] bg-[#111b21] p-2.5 rounded-xl border border-[#222d34] line-clamp-2 leading-relaxed">
+                  <p className="text-xs text-slate-800 bg-white p-3 rounded-xl border border-slate-200 line-clamp-2 leading-relaxed shadow-xs">
                     "{item.body}"
                   </p>
                 </div>
 
-                <div className="space-y-2 pt-2 border-t border-[#222d34]/60">
+                <div className="space-y-2 pt-2 border-t border-slate-200/80">
                   {item.verdict ? (
-                    <div className="p-2 rounded-xl bg-purple-950/30 border border-purple-500/30 text-[11px] text-purple-200 leading-snug">
-                      <span className="font-bold text-amber-300 flex items-center gap-1 mb-0.5">
-                        <Sparkles className="w-3 h-3 text-amber-300" /> AI Verdict & Decision:
+                    <div className="p-2.5 rounded-xl bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-200 text-xs text-slate-800 leading-snug">
+                      <span className="font-bold text-purple-700 flex items-center gap-1 mb-0.5">
+                        <Sparkles className="w-3.5 h-3.5 text-pink-500" /> AI Verdict & Decision:
                       </span>
                       {item.verdict}
                     </div>
                   ) : (
-                    <div className="text-[11px] text-[#8696a0] italic">
+                    <div className="text-[11px] text-slate-400 italic">
                       No critical action items detected in this message.
                     </div>
                   )}
@@ -346,14 +347,14 @@ export default function MainDashboard({
                   <div className="flex items-center justify-between text-xs pt-1">
                     <div className="flex items-center gap-1.5">
                       {getPriorityBadge(item.priority)}
-                      <span className="bg-[#202c33] text-purple-300 text-[10px] px-2 py-0.5 rounded font-medium border border-[#2a3942]">
+                      <span className="bg-purple-50 text-purple-700 text-[10px] px-2 py-0.5 rounded-full font-bold border border-purple-200">
                         {item.category}
                       </span>
                     </div>
 
                     <button
                       onClick={() => onJumpToChat && onJumpToChat(item.chatId)}
-                      className="text-[#00a884] hover:underline font-bold text-xs flex items-center gap-1"
+                      className="text-[#0095f6] hover:underline font-extrabold text-xs flex items-center gap-1"
                     >
                       Open Chat <ArrowUpRight className="w-3 h-3" />
                     </button>
@@ -366,31 +367,31 @@ export default function MainDashboard({
       </div>
 
       {/* 📋 Main Section 2: Actionable To-Do Tasks List */}
-      <div className="bg-[#111b21] border border-[#202c33] rounded-3xl p-6 shadow-2xl space-y-5">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#222d34] pb-4">
+      <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
           <div>
-            <h2 className="text-lg font-bold text-white flex items-center gap-2.5">
-              <ListTodo className="w-5 h-5 text-purple-400" /> Actionable Tasks To-Do ({filteredTasks.length})
+            <h2 className="text-lg font-extrabold text-slate-900 flex items-center gap-2.5">
+              <ListTodo className="w-5 h-5 text-purple-600" /> Actionable Tasks To-Do ({filteredTasks.length})
             </h2>
-            <p className="text-xs text-[#8696a0] mt-0.5">All action items extracted by Gemini AI. Click checkbox to mark completed.</p>
+            <p className="text-xs text-slate-500 mt-0.5">All action items extracted by Gemini AI. Click checkbox to mark completed.</p>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
             <div className="relative min-w-[200px]">
-              <Search className="w-4 h-4 text-[#8696a0] absolute left-3 top-1/2 -translate-y-1/2" />
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
                 placeholder="Search tasks..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-[#202c33] border border-[#222d34] text-[#e9edef] text-xs pl-9 pr-3 py-2 rounded-xl focus:outline-none focus:border-[#00a884] placeholder-[#8696a0]"
+                className="w-full bg-slate-50 border border-slate-200 text-slate-900 text-xs pl-9 pr-3 py-2 rounded-xl focus:outline-none focus:border-[#0095f6] placeholder-slate-400 font-medium"
               />
             </div>
 
             <select
               value={priorityFilter}
               onChange={(e) => setPriorityFilter(e.target.value)}
-              className="bg-[#202c33] border border-[#222d34] text-[#e9edef] text-xs px-3 py-2 rounded-xl focus:outline-none focus:border-[#00a884]"
+              className="bg-slate-50 border border-slate-200 text-slate-900 text-xs px-3 py-2 rounded-xl focus:outline-none focus:border-[#0095f6] font-semibold"
             >
               <option value="ALL">All Priorities</option>
               <option value="HIGH">HIGH Priority</option>
@@ -401,8 +402,8 @@ export default function MainDashboard({
         </div>
 
         {filteredTasks.length === 0 ? (
-          <div className="py-12 text-center text-[#8696a0] text-xs space-y-2">
-            <p className="font-semibold text-white">No tasks matching filters</p>
+          <div className="py-12 text-center text-slate-400 text-xs space-y-2">
+            <p className="font-bold text-slate-700">No tasks matching filters</p>
             <p className="text-xs max-w-sm mx-auto">Click "Analyze All Messages" or start conversations in WhatsApp to generate tasks.</p>
           </div>
         ) : (
@@ -413,8 +414,8 @@ export default function MainDashboard({
               return (
                 <div
                   key={task.id}
-                  className={`bg-[#182229] border border-[#222d34] hover:border-[#00a884]/40 p-4 rounded-2xl transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
-                    isCompleted ? 'opacity-50 bg-[#111b21]/50' : ''
+                  className={`bg-slate-50/70 border border-slate-200 hover:border-slate-300 p-4 rounded-2xl transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
+                    isCompleted ? 'opacity-50 bg-slate-100/50' : ''
                   }`}
                 >
                   <div className="flex items-start gap-3.5 min-w-0">
@@ -422,8 +423,8 @@ export default function MainDashboard({
                       onClick={() => handleToggleComplete(task.id, task.status)}
                       className={`w-5 h-5 rounded-md border flex items-center justify-center transition-colors shrink-0 mt-0.5 ${
                         isCompleted
-                          ? 'bg-[#00a884] border-[#00a884] text-[#0b141a]'
-                          : 'border-[#8696a0]/50 hover:border-[#00a884] text-transparent'
+                          ? 'bg-emerald-500 border-emerald-500 text-white'
+                          : 'border-slate-300 hover:border-[#0095f6] text-transparent bg-white'
                       }`}
                     >
                       <Check className="w-3.5 h-3.5 stroke-[3]" />
@@ -432,36 +433,36 @@ export default function MainDashboard({
                     <div className="space-y-1 min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
                         {getPriorityBadge(task.priority)}
-                        <span className="inline-flex items-center gap-1 bg-[#202c33] text-purple-300 text-[10px] px-2 py-0.5 rounded border border-[#2a3942] font-semibold">
+                        <span className="inline-flex items-center gap-1 bg-purple-50 text-purple-700 text-[10px] px-2.5 py-0.5 rounded-full border border-purple-200 font-extrabold">
                           {getCategoryIcon(task.category)}
                           {task.category || 'General'}
                         </span>
                         {task.dueDate && (
-                          <span className="text-[11px] text-amber-400 font-mono flex items-center gap-1">
-                            <Clock className="w-3 h-3 text-amber-400" /> {task.dueDate}
+                          <span className="text-[11px] text-amber-700 font-mono font-bold flex items-center gap-1 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                            <Clock className="w-3 h-3 text-amber-600" /> {task.dueDate}
                           </span>
                         )}
                       </div>
 
-                      <h3 className={`font-bold text-sm text-[#e9edef] ${isCompleted ? 'line-through text-[#8696a0]' : ''}`}>
+                      <h3 className={`font-extrabold text-sm text-slate-900 ${isCompleted ? 'line-through text-slate-400' : ''}`}>
                         {task.title}
                       </h3>
 
                       {task.verdict ? (
-                        <p className="text-xs text-[#00a884] bg-[#111b21] p-2 rounded-xl border border-[#00a884]/20 leading-relaxed font-medium">
+                        <p className="text-xs text-purple-900 bg-purple-50/80 p-2.5 rounded-xl border border-purple-200 leading-relaxed font-semibold">
                           ⚡ AI Verdict: {task.verdict}
                         </p>
                       ) : task.originalMessage && (
-                        <p className="text-xs text-[#8696a0] italic truncate">"{task.originalMessage}"</p>
+                        <p className="text-xs text-slate-500 italic truncate">"{task.originalMessage}"</p>
                       )}
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-[#222d34]">
+                  <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-200">
                     {task.chatName && (
                       <button
                         onClick={() => onJumpToChat && onJumpToChat(task.chatId)}
-                        className="text-[#00a884] hover:underline text-xs font-semibold flex items-center gap-1"
+                        className="text-[#0095f6] hover:underline text-xs font-bold flex items-center gap-1"
                       >
                         <MessageSquare className="w-3.5 h-3.5" />
                         {task.chatName}
@@ -470,7 +471,7 @@ export default function MainDashboard({
 
                     <button
                       onClick={() => onJumpToChat && onJumpToChat(task.chatId)}
-                      className="px-3.5 py-1.5 bg-[#202c33] hover:bg-[#00a884] text-[#e9edef] hover:text-[#0b141a] rounded-xl font-bold text-xs transition-colors flex items-center gap-1"
+                      className="px-4 py-2 bg-[#0095f6] hover:bg-[#1877f2] text-white rounded-xl font-extrabold text-xs transition-colors flex items-center gap-1 shadow-sm"
                     >
                       Open Chat <ArrowUpRight className="w-3.5 h-3.5" />
                     </button>

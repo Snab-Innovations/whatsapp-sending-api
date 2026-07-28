@@ -7,17 +7,21 @@ export default {
   theme: {
     extend: {
       colors: {
-        whatsapp: {
-          dark: '#0b141a',
-          card: '#111b21',
-          hover: '#202c33',
-          border: '#222d34',
-          accent: '#00a884',
-          accentHover: '#008f6f',
-          textMuted: '#8696a0',
-          textBright: '#e9edef',
-          bubbleOut: '#005c4b',
-          bubbleIn: '#202c33'
+        instagram: {
+          blue: '#0095f6',
+          blueHover: '#1877f2',
+          pink: '#e1306c',
+          purple: '#833ab4',
+          orange: '#f09433',
+          red: '#fd1d1d',
+          yellow: '#fcb045',
+          bg: '#fafafa',
+          surface: '#ffffff',
+          border: '#e2e8f0',
+          text: '#0f172a',
+          secondary: '#64748b',
+          bubbleOut: '#0095f6',
+          bubbleIn: '#f1f5f9'
         }
       }
     },
