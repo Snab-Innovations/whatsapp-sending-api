@@ -701,26 +701,27 @@ app.use(async (req, res, next) => {
   }
 
   const session = getOrCreateSession(rawId.trim());
+  const clientPasscode = req.headers['x-session-passcode'] || req.query.passcode;
+  const clientPassStr = clientPasscode && typeof clientPasscode === 'string' ? clientPasscode.trim() : '';
 
-  // Hydrate passcode & metadata from Cloud Firestore if session was marked fresh
-  if (session.isFresh) {
+  // Check Firestore if session is fresh OR if memory passcode doesn't match clientPasscode
+  if (session.isFresh || (clientPassStr && clientPassStr.length >= 4 && String(session.passcode).trim() !== clientPassStr)) {
     try {
       const meta = await loadSessionMetaFromFirestore(session.sessionId);
       if (meta && meta.passcode) {
         session.passcode = String(meta.passcode).trim();
         delete session.isFresh;
+        saveSessionStoreToDisk(session);
       }
     } catch (e) {}
   }
 
-  // Binds client passcode ONLY IF session is genuinely fresh (new creation)
-  const clientPasscode = req.headers['x-session-passcode'] || req.query.passcode;
-  if (clientPasscode && typeof clientPasscode === 'string' && clientPasscode.trim().length >= 4) {
-    if (session.isFresh) {
-      session.passcode = clientPasscode.trim();
-      delete session.isFresh;
-      saveSessionStoreToDisk(session);
-    }
+  // Binds client passcode ONLY IF session is genuinely fresh (brand new creation)
+  if (clientPassStr && clientPassStr.length >= 4 && session.isFresh) {
+    session.passcode = clientPassStr;
+    delete session.isFresh;
+    saveSessionStoreToDisk(session);
+    syncSessionMetaToFirestore(session.sessionId, session.passcode, session.clientState).catch(() => null);
   }
 
   req.sessionInstance = session;
@@ -735,10 +736,12 @@ function verifyPasscodeAuth(req, res, next) {
   }
 
   const clientPasscode = req.headers['x-session-passcode'] || req.query.passcode;
+  const clientPassStr = clientPasscode && typeof clientPasscode === 'string' ? clientPasscode.trim() : '';
+
   const isValid = Boolean(
     session.passcode &&
-    clientPasscode &&
-    String(clientPasscode).trim() === String(session.passcode).trim()
+    clientPassStr &&
+    String(session.passcode).trim() === clientPassStr
   );
 
   if (!isValid) {
@@ -753,14 +756,28 @@ function verifyPasscodeAuth(req, res, next) {
 }
 
 // --- Public Auth Endpoints ---
-app.get('/api/status', (req, res) => {
+app.get('/api/status', async (req, res) => {
   const session = req.sessionInstance;
   const clientPasscode = req.headers['x-session-passcode'] || req.query.passcode;
-  const isUnlocked = Boolean(
+  const clientPassStr = clientPasscode && typeof clientPasscode === 'string' ? clientPasscode.trim() : '';
+
+  let isUnlocked = Boolean(
     session.passcode &&
-    clientPasscode &&
-    String(clientPasscode).trim() === String(session.passcode).trim()
+    clientPassStr &&
+    String(session.passcode).trim() === clientPassStr
   );
+
+  if (!isUnlocked && clientPassStr && clientPassStr.length >= 4) {
+    try {
+      const meta = await loadSessionMetaFromFirestore(session.sessionId);
+      if (meta && meta.passcode && String(meta.passcode).trim() === clientPassStr) {
+        session.passcode = String(meta.passcode).trim();
+        delete session.isFresh;
+        saveSessionStoreToDisk(session);
+        isUnlocked = true;
+      }
+    } catch (e) {}
+  }
 
   if (!isUnlocked) {
     return res.json({

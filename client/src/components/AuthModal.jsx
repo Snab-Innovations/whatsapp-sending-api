@@ -48,7 +48,10 @@ export default function AuthModal({
 
   const handleExistingSessionLogin = async (e) => {
     e.preventDefault();
-    if (!targetSessionId.trim() || !targetPasscode.trim()) {
+    const cleanId = targetSessionId.trim();
+    const cleanPass = targetPasscode.trim();
+
+    if (!cleanId || !cleanPass) {
       setLoginError('Both Session ID and Access PIN are required.');
       return;
     }
@@ -57,9 +60,17 @@ export default function AuthModal({
     setLoginError('');
 
     try {
-      switchSession(targetSessionId.trim(), targetPasscode.trim());
+      // Set local storage keys first so verifyPasscode header uses the new session
+      localStorage.setItem('whatsapp_session_id', cleanId);
+      setSessionPasscode(cleanPass);
+
+      // Verify with server
+      await verifyPasscode(cleanPass);
+
+      if (onUnlocked) onUnlocked();
+      window.location.reload();
     } catch (err) {
-      setLoginError(err.message || 'Login failed. Please check credentials.');
+      setLoginError(err.message || 'Invalid Session ID or Access PIN. Login denied.');
       setLoginLoading(false);
     }
   };
