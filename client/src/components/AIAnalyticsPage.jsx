@@ -536,9 +536,13 @@ export default function AIAnalyticsPage({ tasks: initialTasks = [], onJumpToChat
                         <p className={`font-semibold text-sm text-[#e9edef] ${isCompleted ? 'line-through text-[#8696a0]' : ''}`}>
                           {task.title}
                         </p>
-                        {task.summary && (
+                        {task.verdict ? (
+                          <p className="text-[11px] text-[#00a884] font-medium mt-1 leading-snug bg-[#202c33]/80 p-1.5 rounded-lg border border-[#00a884]/20">
+                            ⚡ AI Verdict: {task.verdict}
+                          </p>
+                        ) : task.summary ? (
                           <p className="text-[11px] text-[#8696a0] mt-0.5 truncate">{task.summary}</p>
-                        )}
+                        ) : null}
                       </td>
 
                       {/* Category */}

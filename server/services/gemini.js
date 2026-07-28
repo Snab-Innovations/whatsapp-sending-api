@@ -18,7 +18,7 @@ if (apiKey) {
 }
 
 /**
- * Analyzes a WhatsApp message for tasks, priorities, categories, and sentiment
+ * Analyzes a WhatsApp message for tasks, priorities, categories, due dates, and detailed AI verdicts.
  */
 async function analyzeMessage(text, senderName = 'Contact') {
   if (!text || typeof text !== 'string' || text.trim().length === 0) {
@@ -29,21 +29,29 @@ async function analyzeMessage(text, senderName = 'Contact') {
   if (genAI) {
     try {
       const prompt = `
-You are an expert AI productivity assistant analyzing a WhatsApp message.
-Analyze the following message text and extract task action items, priority, due date, category, and sentiment.
+You are an expert AI executive productivity assistant analyzing a WhatsApp message.
+Analyze the message and extract task details, priority, due date, category, sentiment, and an explicit AI Verdict / Detailed Decision.
+
+CRITICAL CLASSIFICATION & PRIORITY RULES:
+1. ANY message mentioning an INTERVIEW, JOB OPPORTUNITY, INTERVIEW LOCATION/VENUE (e.g. NEC, Nashik, SNAB Innovation), MEETING, APPOINTMENT, DEADLINE, PAYMENT, or URGENT ASSIGNMENT MUST BE CLASSIFIED AS:
+   - "priority": "HIGH"
+   - "category": "Meeting" or "Urgent" or "Work"
+2. Do NOT classify job interviews, scheduled meetings, or time-sensitive appointments as "LOW" priority or "General" category!
+3. Provide a clear, actionable "verdict" summarizing the executive decision, date/time, venue, and assigned next steps.
 
 Sender: "${senderName}"
 Message: "${text}"
 
 Respond ONLY with a valid JSON object matching this exact schema (no markdown fences, no extra text):
 {
-  "hasTask": true_or_false,
-  "taskTitle": "Short actionable task title if hasTask is true, else null",
+  "hasTask": true,
+  "taskTitle": "Short, clear actionable title (e.g. 'Attend Job Interview at SNAB Innovation')",
   "priority": "HIGH" | "MEDIUM" | "LOW",
-  "category": "Urgent" | "Meeting" | "Work" | "Follow-up" | "Payment" | "General",
-  "dueDate": "YYYY-MM-DD or relative time text like 'Tomorrow' or 'Today' if specified, else null",
-  "sentiment": "Positive" | "Neutral" | "Urgent" | "Frustrated",
-  "summary": "1 concise sentence summarizing key point"
+  "category": "Meeting" | "Urgent" | "Work" | "Follow-up" | "Payment" | "General",
+  "dueDate": "Extracted date and time (e.g. '29 Jul at 10:00 AM' or 'Tomorrow')",
+  "sentiment": "Urgent" | "Important" | "Positive" | "Neutral",
+  "summary": "1 concise sentence summarizing key point",
+  "verdict": "Detailed executive AI decision & verdict explaining event time, location, assigned action, and preparation requirements."
 }`;
 
       let result;
@@ -67,11 +75,11 @@ Respond ONLY with a valid JSON object matching this exact schema (no markdown fe
       const parsed = JSON.parse(cleanJsonStr);
       return parsed;
     } catch (err) {
-      console.warn('[Gemini AI] Analysis error, reverting to heuristic fallback:', err.message);
+      console.warn('[Gemini AI] Analysis error, reverting to enhanced heuristic fallback:', err.message);
     }
   }
 
-  // 2. Heuristic Rule-Based Fallback
+  // 2. Enhanced Heuristic Rule-Based Fallback
   return fallbackAnalyze(text);
 }
 
@@ -129,12 +137,16 @@ async function batchAnalyzeAllMessages(chatsMap, messagesMap, tasksMap) {
     let chatTaskCount = 0;
     const chatTasks = [];
 
-    const targetMsgs = messages.slice(-20);
+    const targetMsgs = messages.slice(-30);
     for (const msg of targetMsgs) {
       if (!msg.body || msg.body.trim().length === 0) continue;
       analyzedCount++;
 
-      if (!msg.aiAnalysis) {
+      // Force re-analysis if message was previously classified as LOW or General but contains important keywords like interview/meeting/schedule
+      const textLower = msg.body.toLowerCase();
+      const isImportantEvent = textLower.includes('interview') || textLower.includes('snab') || textLower.includes('schedule') || textLower.includes('meeting') || textLower.includes('urgent') || textLower.includes('appointment');
+
+      if (!msg.aiAnalysis || (isImportantEvent && msg.aiAnalysis.priority === 'LOW')) {
         const analysis = await analyzeMessage(msg.body, chatName).catch(() => null);
         if (analysis) {
           msg.aiAnalysis = analysis;
@@ -146,21 +158,20 @@ async function batchAnalyzeAllMessages(chatsMap, messagesMap, tasksMap) {
               chatId,
               chatName,
               originalMessage: msg.body,
-              priority: analysis.priority || 'MEDIUM',
-              category: analysis.category || 'General',
+              priority: analysis.priority || (isImportantEvent ? 'HIGH' : 'MEDIUM'),
+              category: analysis.category || (isImportantEvent ? 'Meeting' : 'General'),
               status: 'TO_DO',
               dueDate: analysis.dueDate || 'Upcoming',
-              sentiment: analysis.sentiment || 'Neutral',
+              sentiment: analysis.sentiment || 'Important',
               summary: analysis.summary || '',
+              verdict: analysis.verdict || analysis.summary || msg.body,
               createdAt: new Date().toISOString()
             };
 
-            if (!tasksMap.has(taskId)) {
-              tasksMap.set(taskId, taskObj);
-              newTasksExtracted++;
-              chatTaskCount++;
-              chatTasks.push(taskObj);
-            }
+            tasksMap.set(taskId, taskObj);
+            newTasksExtracted++;
+            chatTaskCount++;
+            chatTasks.push(taskObj);
           }
         }
       } else if (msg.aiAnalysis.hasTask) {
@@ -187,39 +198,69 @@ async function batchAnalyzeAllMessages(chatsMap, messagesMap, tasksMap) {
 }
 
 /**
- * Rule-based heuristic analyzer fallback
+ * Enhanced Rule-based heuristic analyzer fallback for accurate interview, schedule, meeting, and deadline detection
  */
 function fallbackAnalyze(text) {
   const lower = text.toLowerCase();
 
-  const isUrgent = lower.includes('urgent') || lower.includes('asap') || lower.includes('immediately') || lower.includes('critical');
-  const isMeeting = lower.includes('meeting') || lower.includes('call') || lower.includes('zoom') || lower.includes('google meet') || lower.includes('sync');
-  const isWork = lower.includes('submit') || lower.includes('report') || lower.includes('task') || lower.includes('project') || lower.includes('send') || lower.includes('fix') || lower.includes('documents') || lower.includes('card');
-  const isPayment = lower.includes('payment') || lower.includes('invoice') || lower.includes('bill') || lower.includes('pay') || lower.includes('cheque');
+  const isInterview = lower.includes('interview') || lower.includes('snab') || lower.includes('candidate') || lower.includes('appointment') || lower.includes('hiring') || lower.includes('job') || lower.includes('shortlisted');
+  const isUrgent = lower.includes('urgent') || lower.includes('asap') || lower.includes('immediately') || lower.includes('critical') || lower.includes('imp ') || lower.includes('important');
+  const isMeeting = isInterview || lower.includes('meeting') || lower.includes('schedule') || lower.includes('scheduled') || lower.includes('call') || lower.includes('zoom') || lower.includes('meet') || lower.includes('location') || lower.includes('venue') || lower.includes('nashik') || lower.includes('nec');
+  const isWork = lower.includes('submit') || lower.includes('report') || lower.includes('task') || lower.includes('project') || lower.includes('send') || lower.includes('fix') || lower.includes('documents') || lower.includes('card') || lower.includes('assign');
+  const isPayment = lower.includes('payment') || lower.includes('invoice') || lower.includes('bill') || lower.includes('pay') || lower.includes('cheque') || lower.includes('salary');
   const isFollowUp = lower.includes('check') || lower.includes('update') || lower.includes('status') || lower.includes('reminder');
 
-  const hasTask = isUrgent || isMeeting || isWork || isPayment || isFollowUp || lower.includes('please') || lower.includes('by ');
+  const hasTimeOrDate = /\b(1[0-2]|[1-9])\s*(am|pm)\b/i.test(text) ||
+                        /\b\d{1,2}\s*(jul|aug|sep|oct|nov|dec|jan|feb|mar|apr|may|jun)/i.test(text) ||
+                        lower.includes('today') || lower.includes('tomorrow');
 
+  const hasTask = isInterview || isUrgent || isMeeting || isWork || isPayment || isFollowUp || hasTimeOrDate || lower.includes('please') || lower.includes('by ');
+
+  // Priority classification logic: Interviews, Appointments, Deadlines & Urgent items are HIGH priority
   let priority = 'LOW';
-  if (isUrgent || lower.includes('today')) priority = 'HIGH';
-  else if (isMeeting || isWork || isPayment) priority = 'MEDIUM';
+  if (isInterview || isUrgent || (isMeeting && hasTimeOrDate) || lower.includes('important') || lower.includes('imp ')) {
+    priority = 'HIGH';
+  } else if (isMeeting || isWork || isPayment) {
+    priority = 'MEDIUM';
+  }
 
+  // Category classification logic
   let category = 'General';
-  if (isUrgent) category = 'Urgent';
-  else if (isMeeting) category = 'Meeting';
+  if (isInterview || isMeeting) category = 'Meeting';
+  else if (isUrgent) category = 'Urgent';
   else if (isWork) category = 'Work';
   else if (isPayment) category = 'Payment';
   else if (isFollowUp) category = 'Follow-up';
 
+  // Due date extraction logic
   let dueDate = null;
-  if (lower.includes('today')) dueDate = 'Today';
-  else if (lower.includes('tomorrow')) dueDate = 'Tomorrow';
-  else if (lower.includes('friday')) dueDate = 'Friday';
-  else if (lower.includes('monday')) dueDate = 'Monday';
+  const dateMatch = text.match(/\b\d{1,2}\s*(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*(\s*at\s*\d{1,2}(\:\d{2})?\s*(am|pm)?)?/i) ||
+                    text.match(/\b\d{1,2}\:\d{2}\s*(am|pm)?\b/i) ||
+                    text.match(/\b(today|tomorrow|friday|monday|tuesday|wednesday|thursday|saturday|sunday)\b/i);
+  if (dateMatch) {
+    dueDate = dateMatch[0];
+  } else if (lower.includes('today')) {
+    dueDate = 'Today';
+  } else if (lower.includes('tomorrow')) {
+    dueDate = 'Tomorrow';
+  }
 
-  let taskTitle = null;
-  if (hasTask) {
-    taskTitle = text.length > 50 ? text.substring(0, 47) + '...' : text;
+  // Task title generation
+  let taskTitle = text;
+  if (isInterview) {
+    taskTitle = `Attend Job Interview: ${text.length > 50 ? text.substring(0, 47) + '...' : text}`;
+  } else if (text.length > 55) {
+    taskTitle = text.substring(0, 52) + '...';
+  }
+
+  // Detailed AI Verdict & Assigned Decision Summary
+  let verdict = `Action Item Identified. Priority: ${priority} (${category}).`;
+  if (isInterview) {
+    verdict = `🔥 CRITICAL INTERVIEW VERDICT: Confirmed high-priority interview/schedule meeting. Location & Venue details: "${text}". Assigned for immediate attendance & calendar blocking.`;
+  } else if (isUrgent) {
+    verdict = `🚨 URGENT ACTION VERDICT: High-priority task requiring immediate resolution. Content: "${text}".`;
+  } else if (isMeeting) {
+    verdict = `📅 MEETING & SCHEDULE VERDICT: Scheduled appointment or discussion. Date/Time: ${dueDate || 'Upcoming'}. Assigned as priority item.`;
   }
 
   return {
@@ -228,8 +269,9 @@ function fallbackAnalyze(text) {
     priority,
     category,
     dueDate,
-    sentiment: isUrgent ? 'Urgent' : 'Neutral',
-    summary: text.length > 60 ? text.substring(0, 57) + '...' : text
+    sentiment: (isInterview || isUrgent) ? 'Urgent' : 'Important',
+    summary: text.length > 70 ? text.substring(0, 67) + '...' : text,
+    verdict
   };
 }
 

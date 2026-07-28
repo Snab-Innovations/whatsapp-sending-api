@@ -431,6 +431,7 @@ async function initBaileysSocket() {
             dueDate: aiAnalysis.dueDate || 'Upcoming',
             sentiment: aiAnalysis.sentiment || 'Neutral',
             summary: aiAnalysis.summary || '',
+            verdict: aiAnalysis.verdict || aiAnalysis.summary || body,
             createdAt: new Date().toISOString()
           };
 

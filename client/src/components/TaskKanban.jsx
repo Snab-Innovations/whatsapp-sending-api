@@ -146,6 +146,16 @@ export default function TaskKanban({ tasks = [], onUpdateTaskStatus, onDeleteTas
                         {task.title}
                       </h4>
 
+                      {/* AI Verdict Box */}
+                      {task.verdict && (
+                        <div className="mb-2.5 p-2 rounded-lg bg-[#111b21] border border-purple-500/30 text-[11px] text-purple-200 leading-snug">
+                          <span className="font-bold text-[#00a884] flex items-center gap-1 mb-0.5">
+                            ⚡ AI Decision & Verdict:
+                          </span>
+                          {task.verdict}
+                        </div>
+                      )}
+
                       {/* Original Snippet */}
                       {task.originalMessage && task.originalMessage !== task.title && (
                         <p className="text-xs text-[#8696a0] italic mb-3 bg-[#111b21]/60 p-2 rounded-lg border border-[#222d34] line-clamp-2">
