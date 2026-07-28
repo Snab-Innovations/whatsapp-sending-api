@@ -1,6 +1,6 @@
 // API service layer for WhatsApp web chat viewer & Gemini AI Task Manager
 
-const API_BASE = (import.meta.env.VITE_SERVER_URL || '').replace(/\/$/, '');
+const API_BASE = import.meta.env.DEV ? (import.meta.env.VITE_SERVER_URL || '').replace(/\/$/, '') : '';
 
 export function subscribeToEvents(onUpdate) {
   const eventSource = new EventSource(`${API_BASE}/api/events`);
