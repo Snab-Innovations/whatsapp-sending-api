@@ -150,6 +150,9 @@ function loadSessionStoreFromDisk(session) {
       } else {
         saveSessionStoreToDisk(session);
       }
+      if (data.clientState && data.clientState.status) {
+        session.clientState = { ...session.clientState, ...data.clientState };
+      }
       if (Array.isArray(data.chats)) {
         data.chats.forEach(c => {
           if (c && c.id) {
@@ -157,6 +160,9 @@ function loadSessionStoreFromDisk(session) {
             session.chatsMap.set(c.id, c);
           }
         });
+        if (session.chatsMap.size > 0) {
+          session.clientState.status = 'READY';
+        }
       }
       if (data.messages && typeof data.messages === 'object') {
         Object.entries(data.messages).forEach(([jid, msgs]) => {
@@ -181,6 +187,7 @@ function saveSessionStoreToDisk(session) {
   try {
     const data = {
       passcode: session.passcode,
+      clientState: session.clientState,
       chats: Array.from(session.chatsMap.values()),
       messages: Object.fromEntries(session.messagesMap),
       tasks: Array.from(session.tasksMap.values())
@@ -195,9 +202,17 @@ function saveSessionStoreToDisk(session) {
 async function loadSessionFromFirestore(session) {
   try {
     const meta = await loadSessionMetaFromFirestore(session.sessionId);
-    if (meta && meta.passcode) {
-      session.passcode = String(meta.passcode).trim();
-      delete session.isFresh;
+    if (meta) {
+      if (meta.passcode) {
+        session.passcode = String(meta.passcode).trim();
+        delete session.isFresh;
+      }
+      if (meta.status === 'READY' || meta.status === 'AUTHENTICATED') {
+        session.clientState.status = 'READY';
+      }
+      if (meta.userInfo) {
+        session.clientState.userInfo = meta.userInfo;
+      }
     }
 
     const firestoreTasks = await loadTasksFromFirestore(session.sessionId);
@@ -219,6 +234,7 @@ async function loadSessionFromFirestore(session) {
           }
         }
       }
+      session.clientState.status = 'READY';
     }
     saveSessionStoreToDisk(session);
   } catch (err) {

@@ -359,7 +359,7 @@ export default function App() {
     }
   };
 
-  const isModalOpen = clientState.status !== 'READY';
+  const isModalOpen = !clientState.isLocked && clientState.status !== 'READY' && chats.length === 0;
   const isLocked = Boolean(clientState.isLocked);
   const currentSessionId = getOrCreateSessionId();
 
