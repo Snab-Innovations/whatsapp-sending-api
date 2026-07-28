@@ -280,7 +280,7 @@ async function initBaileysSocketForSession(session) {
         if (msgObj && msgObj.body) {
           return { conversation: msgObj.body };
         }
-      } catch (e) {}
+      } catch (e) { }
       return undefined;
     },
     generateHighQualityLinkPreview: true,
@@ -709,7 +709,7 @@ app.use(async (req, res, next) => {
         delete session.isFresh;
         saveSessionStoreToDisk(session);
       }
-    } catch (e) {}
+    } catch (e) { }
   }
 
   // Binds client passcode ONLY IF session is genuinely fresh (brand new creation)
