@@ -44,6 +44,31 @@ let sseClients = [];
 
 const STORE_PATH = path.join(__dirname, 'data', 'store.json');
 
+/**
+ * Helper to resolve clean, human-readable contact display names
+ */
+function resolveDisplayName(id, name, pushName) {
+  if (pushName && typeof pushName === 'string' && pushName.trim().length > 0) {
+    return pushName.trim();
+  }
+  if (name && typeof name === 'string' && name.trim().length > 0 && !name.includes('@s.whatsapp.net') && !name.includes('@lid') && !/^\d{10,15}$/.test(name.trim())) {
+    return name.trim();
+  }
+  if (id && typeof id === 'string') {
+    const rawNumber = id.split('@')[0].split(':')[0];
+    if (/^\d{10,15}$/.test(rawNumber)) {
+      if (rawNumber.startsWith('91') && rawNumber.length === 12) {
+        return `+91 ${rawNumber.substring(2, 7)} ${rawNumber.substring(7)}`;
+      } else if (rawNumber.startsWith('1') && rawNumber.length === 11) {
+        return `+1 (${rawNumber.substring(1, 4)}) ${rawNumber.substring(4, 7)}-${rawNumber.substring(7)}`;
+      } else {
+        return `+${rawNumber}`;
+      }
+    }
+  }
+  return name || id || 'WhatsApp Contact';
+}
+
 function loadStoreFromDisk() {
   try {
     if (fs.existsSync(STORE_PATH)) {
@@ -51,7 +76,10 @@ function loadStoreFromDisk() {
       const data = JSON.parse(raw);
       if (Array.isArray(data.chats)) {
         data.chats.forEach(c => {
-          if (c && c.id) chatsMap.set(c.id, c);
+          if (c && c.id) {
+            c.name = resolveDisplayName(c.id, c.name, null);
+            chatsMap.set(c.id, c);
+          }
         });
       }
       if (data.messages && typeof data.messages === 'object') {
@@ -426,7 +454,11 @@ async function initBaileysSocket() {
 
       // 🤖 Analyze message with Gemini AI
       const existingChat = chatsMap.get(remoteJid);
-      const chatName = existingChat ? existingChat.name : remoteJid.split('@')[0];
+      const pushName = msg.pushName || null;
+      let chatName = resolveDisplayName(remoteJid, existingChat?.name, pushName);
+      if (existingChat && pushName) {
+        existingChat.name = pushName;
+      }
       
       const aiAnalysis = await analyzeMessage(body, chatName).catch(() => null);
       if (aiAnalysis) {
@@ -498,7 +530,7 @@ async function initBaileysSocket() {
       // Update chat in chatsMap
       const updatedChat = existingChat || {
         id: remoteJid,
-        name: msg.pushName || remoteJid.split('@')[0],
+        name: chatName,
         isGroup: remoteJid.endsWith('@g.us'),
         isArchived: false,
         isPinned: false,
@@ -506,6 +538,8 @@ async function initBaileysSocket() {
         timestamp,
         profilePicUrl: null
       };
+
+      updatedChat.name = chatName;
 
       updatedChat.timestamp = timestamp;
       if (!fromMe) {
@@ -713,7 +747,7 @@ app.post('/api/messages/send', async (req, res) => {
 
     // 🤖 Analyze sent message with Gemini AI
     const existingChat = chatsMap.get(targetJid);
-    const chatName = existingChat ? existingChat.name : cleanDigits;
+    const chatName = resolveDisplayName(targetJid, existingChat?.name, null);
     const aiAnalysis = await analyzeMessage(message, chatName).catch(() => null);
 
     const formattedMsg = {
@@ -761,7 +795,7 @@ app.post('/api/messages/send', async (req, res) => {
     // Update in chatsMap
     const updatedChat = existingChat || {
       id: targetJid,
-      name: cleanDigits || targetJid.split('@')[0],
+      name: chatName,
       isGroup: targetJid.endsWith('@g.us'),
       isArchived: false,
       isPinned: false,
@@ -769,6 +803,8 @@ app.post('/api/messages/send', async (req, res) => {
       timestamp,
       profilePicUrl: null
     };
+
+    updatedChat.name = chatName;
 
     updatedChat.timestamp = timestamp;
     updatedChat.lastMessage = {
