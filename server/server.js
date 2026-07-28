@@ -251,17 +251,38 @@ async function initBaileysSocket() {
     }
   });
 
-  // Handle Full History Sync from Phone (All Chats & Messages!)
-  sock.ev.on('messaging-history.set', async ({ chats, messages }) => {
-    console.log(`[Baileys] History Sync: ${chats ? chats.length : 0} chats, ${messages ? messages.length : 0} messages.`);
+  // Handle Full History Sync from Phone (All Chats, Messages & Contacts!)
+  sock.ev.on('messaging-history.set', async ({ chats, messages, contacts }) => {
+    console.log(`[Baileys] History Sync: ${chats ? chats.length : 0} chats, ${messages ? messages.length : 0} messages, ${contacts ? contacts.length : 0} contacts.`);
+
+    if (contacts) {
+      for (const c of contacts) {
+        if (!c.id || c.id === 'status@broadcast') continue;
+        const existing = chatsMap.get(c.id) || {};
+        const contactName = c.name || c.notify || c.verifiedName || existing.name || c.id.split('@')[0];
+        chatsMap.set(c.id, {
+          ...existing,
+          id: c.id,
+          name: contactName,
+          isGroup: c.id.endsWith('@g.us'),
+          isArchived: Boolean(c.archived || existing.isArchived),
+          isPinned: Boolean(c.pinned || existing.isPinned),
+          unreadCount: c.unreadCount || existing.unreadCount || 0,
+          timestamp: c.conversationTimestamp ? Number(c.conversationTimestamp) : (existing.timestamp || 0),
+          lastMessage: existing.lastMessage || null,
+          profilePicUrl: null
+        });
+      }
+    }
 
     if (chats) {
       for (const c of chats) {
         if (!c.id || c.id === 'status@broadcast') continue;
         const existing = chatsMap.get(c.id) || {};
         chatsMap.set(c.id, {
+          ...existing,
           id: c.id,
-          name: c.name || c.id.split('@')[0],
+          name: c.name || existing.name || c.id.split('@')[0],
           isGroup: c.id.endsWith('@g.us'),
           isArchived: Boolean(c.archived),
           isPinned: Boolean(c.pinned),
@@ -309,11 +330,23 @@ async function initBaileysSocket() {
           chatMsgs.push(formattedMsg);
         }
 
-        const chatObj = chatsMap.get(remoteJid);
-        if (chatObj && (!chatObj.timestamp || timestamp >= chatObj.timestamp)) {
+        const chatObj = chatsMap.get(remoteJid) || {
+          id: remoteJid,
+          name: remoteJid.split('@')[0],
+          isGroup: remoteJid.endsWith('@g.us'),
+          isArchived: false,
+          isPinned: false,
+          unreadCount: 0,
+          timestamp,
+          lastMessage: { body, timestamp, fromMe },
+          profilePicUrl: null
+        };
+
+        if (!chatObj.timestamp || timestamp >= chatObj.timestamp) {
           chatObj.timestamp = timestamp;
           chatObj.lastMessage = { body, timestamp, fromMe };
         }
+        chatsMap.set(remoteJid, chatObj);
       }
     }
 
@@ -453,12 +486,91 @@ async function initBaileysSocket() {
       chatsMap.set(c.id, {
         ...existing,
         id: c.id,
-        name: c.name || c.id.split('@')[0],
+        name: c.name || existing.name || c.id.split('@')[0],
         isGroup: c.id.endsWith('@g.us'),
         unreadCount: c.unreadCount || existing.unreadCount || 0,
         timestamp: c.conversationTimestamp ? Number(c.conversationTimestamp) : (existing.timestamp || 0)
       });
     }
+    broadcastState();
+    saveStoreToDisk();
+  });
+
+  sock.ev.on('chats.set', ({ chats }) => {
+    console.log(`[Baileys] Chats set received: ${chats ? chats.length : 0} chats.`);
+    if (chats) {
+      for (const c of chats) {
+        if (!c.id || c.id === 'status@broadcast') continue;
+        const existing = chatsMap.get(c.id) || {};
+        chatsMap.set(c.id, {
+          ...existing,
+          id: c.id,
+          name: c.name || existing.name || c.id.split('@')[0],
+          isGroup: c.id.endsWith('@g.us'),
+          unreadCount: c.unreadCount || existing.unreadCount || 0,
+          timestamp: c.conversationTimestamp ? Number(c.conversationTimestamp) : (existing.timestamp || 0)
+        });
+      }
+      broadcastState();
+      saveStoreToDisk();
+    }
+  });
+
+  sock.ev.on('chats.update', (updates) => {
+    for (const u of updates) {
+      if (!u.id) continue;
+      const existing = chatsMap.get(u.id);
+      if (existing) {
+        chatsMap.set(u.id, {
+          ...existing,
+          ...u,
+          name: u.name || existing.name
+        });
+      }
+    }
+    saveStoreToDisk();
+  });
+
+  // Sync Contacts
+  sock.ev.on('contacts.set', ({ contacts }) => {
+    console.log(`[Baileys] Contacts set received: ${contacts ? contacts.length : 0} contacts.`);
+    if (contacts) {
+      for (const c of contacts) {
+        if (!c.id || c.id === 'status@broadcast') continue;
+        const existing = chatsMap.get(c.id) || {};
+        const contactName = c.name || c.notify || c.verifiedName || existing.name || c.id.split('@')[0];
+        chatsMap.set(c.id, {
+          ...existing,
+          id: c.id,
+          name: contactName,
+          isGroup: c.id.endsWith('@g.us'),
+          isArchived: existing.isArchived || false,
+          isPinned: existing.isPinned || false,
+          unreadCount: existing.unreadCount || 0,
+          timestamp: existing.timestamp || Math.floor(Date.now() / 1000),
+          lastMessage: existing.lastMessage || null
+        });
+      }
+      broadcastState();
+      saveStoreToDisk();
+    }
+  });
+
+  sock.ev.on('contacts.upsert', (newContacts) => {
+    for (const c of newContacts) {
+      if (!c.id || c.id === 'status@broadcast') continue;
+      const existing = chatsMap.get(c.id) || {};
+      const contactName = c.name || c.notify || c.verifiedName || existing.name || c.id.split('@')[0];
+      chatsMap.set(c.id, {
+        ...existing,
+        id: c.id,
+        name: contactName,
+        isGroup: c.id.endsWith('@g.us'),
+        unreadCount: existing.unreadCount || 0,
+        timestamp: existing.timestamp || Math.floor(Date.now() / 1000)
+      });
+    }
+    broadcastState();
     saveStoreToDisk();
   });
 }
@@ -727,6 +839,18 @@ app.post('/api/restart', (req, res) => {
   tasksMap.clear();
   initBaileysSocket();
   res.json({ success: true, message: 'Re-initializing Baileys WebSocket...' });
+});
+
+// 12.1 POST /api/chats/sync - Soft reconnect to trigger WhatsApp contacts/chats sync
+app.post('/api/chats/sync', (req, res) => {
+  console.log('[Baileys] Manual chat & contact sync requested. Re-connecting socket...');
+  if (sock && sock.ws) {
+    try {
+      sock.ws.close();
+    } catch (e) {}
+  }
+  setTimeout(() => initBaileysSocket(), 800);
+  res.json({ success: true, message: 'Syncing chats and contacts from WhatsApp device...' });
 });
 
 // 📊 13. POST /api/ai/analyze-all - Scan and analyze all historical messages across all chats

@@ -14,6 +14,7 @@ import {
   sendMessage,
   logoutSession,
   restartClient,
+  syncChats,
   getTasks,
   updateTask,
   deleteTask
@@ -290,13 +291,28 @@ export default function App() {
     }
   };
 
+  const handleSyncChats = async () => {
+    try {
+      setLoadingChats(true);
+      await syncChats();
+      setTimeout(() => {
+        fetchChats();
+        fetchTasks();
+      }, 1500);
+    } catch (err) {
+      console.error('Sync chats error:', err);
+    } finally {
+      setTimeout(() => setLoadingChats(false), 2000);
+    }
+  };
+
   const isModalOpen = clientState.status !== 'READY';
 
   return (
     <div className="flex flex-col h-screen bg-[#0b141a] text-[#e9edef] overflow-hidden">
       <Header
         clientState={clientState}
-        onSync={() => { fetchChats(); fetchTasks(); }}
+        onSync={handleSyncChats}
         onLogout={handleLogout}
         loadingSync={loadingChats}
         onOpenNewChat={() => setIsNewChatModalOpen(true)}
@@ -312,6 +328,7 @@ export default function App() {
               chats={chats}
               activeChatId={activeChat?.id}
               onSelectChat={handleSelectChat}
+              onSyncChats={handleSyncChats}
               loading={loadingChats}
             />
 

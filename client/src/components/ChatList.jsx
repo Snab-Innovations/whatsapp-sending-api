@@ -1,9 +1,20 @@
 import React, { useState } from 'react';
-import { Search, Pin, Users, User, MessageCircle, CheckCheck } from 'lucide-react';
+import { Search, Pin, Users, User, MessageCircle, CheckCheck, RefreshCw } from 'lucide-react';
 
-export default function ChatList({ chats, activeChatId, onSelectChat, loading }) {
+export default function ChatList({ chats, activeChatId, onSelectChat, onSyncChats, loading }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [filter, setFilter] = useState('all'); // 'all', 'unread', 'groups'
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  const handleSync = async () => {
+    if (isSyncing || !onSyncChats) return;
+    setIsSyncing(true);
+    try {
+      await onSyncChats();
+    } finally {
+      setTimeout(() => setIsSyncing(false), 1200);
+    }
+  };
 
   // Format timestamp relative to now
   const formatTimestamp = (ts) => {
@@ -27,8 +38,10 @@ export default function ChatList({ chats, activeChatId, onSelectChat, loading })
 
   // Filtering
   const filteredChats = chats.filter((chat) => {
-    const matchesSearch = chat.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          chat.id.toLowerCase().includes(searchQuery.toLowerCase());
+    const chatName = chat.name || '';
+    const chatId = chat.id || '';
+    const matchesSearch = chatName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          chatId.toLowerCase().includes(searchQuery.toLowerCase());
     
     if (!matchesSearch) return false;
 
@@ -41,15 +54,27 @@ export default function ChatList({ chats, activeChatId, onSelectChat, loading })
     <div className="w-80 sm:w-96 bg-[#111b21] border-r border-[#222d34] flex flex-col h-full shrink-0">
       {/* Search Header */}
       <div className="p-3 bg-[#111b21] border-b border-[#222d34] space-y-2.5">
-        <div className="relative">
-          <Search className="w-4 h-4 text-[#8696a0] absolute left-3 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            placeholder="Search or start new chat"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-[#202c33] text-[#e9edef] text-sm pl-9 pr-4 py-2 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#00a884] placeholder-[#8696a0]"
-          />
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <Search className="w-4 h-4 text-[#8696a0] absolute left-3 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              placeholder="Search or start new chat"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full bg-[#202c33] text-[#e9edef] text-sm pl-9 pr-4 py-2 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#00a884] placeholder-[#8696a0]"
+            />
+          </div>
+          {onSyncChats && (
+            <button
+              onClick={handleSync}
+              title="Sync WhatsApp Chats"
+              disabled={isSyncing}
+              className="p-2 bg-[#202c33] hover:bg-[#2a3942] text-[#00a884] rounded-lg transition-colors flex items-center justify-center shrink-0 disabled:opacity-50"
+            >
+              <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
+            </button>
+          )}
         </div>
 
         {/* Filter Pills */}
@@ -95,8 +120,18 @@ export default function ChatList({ chats, activeChatId, onSelectChat, loading })
             <p className="text-xs">Fetching chats from WhatsApp device...</p>
           </div>
         ) : filteredChats.length === 0 ? (
-          <div className="p-8 text-center text-[#8696a0] text-xs">
-            No chats found matching your criteria.
+          <div className="p-8 text-center text-[#8696a0] text-xs space-y-3">
+            <p>No chats found matching your criteria.</p>
+            {onSyncChats && (
+              <button
+                onClick={handleSync}
+                disabled={isSyncing}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#00a884]/10 hover:bg-[#00a884]/20 text-[#00a884] border border-[#00a884]/30 rounded-md transition-colors text-xs font-medium"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
+                {isSyncing ? 'Syncing...' : 'Sync WhatsApp Chats'}
+              </button>
+            )}
           </div>
         ) : (
           filteredChats.map((chat, idx) => {

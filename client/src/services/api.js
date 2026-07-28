@@ -71,6 +71,12 @@ export async function restartClient() {
   return res.json();
 }
 
+export async function syncChats() {
+  const res = await fetch('/api/chats/sync', { method: 'POST' });
+  if (!res.ok) throw new Error('Failed to sync chats');
+  return res.json();
+}
+
 // 📋 AI Task & Action Planner APIs
 export async function getTasks() {
   const res = await fetch('/api/tasks');
