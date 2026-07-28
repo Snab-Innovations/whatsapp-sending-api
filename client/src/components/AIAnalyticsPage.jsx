@@ -19,7 +19,9 @@ import {
   CreditCard,
   User,
   Users,
-  Loader2
+  Loader2,
+  Video,
+  ExternalLink
 } from 'lucide-react';
 import { getAnalytics, analyzeAllMessages, updateTask } from '../services/api';
 
@@ -64,6 +66,53 @@ export default function AIAnalyticsPage({ tasks = [], onJumpToChat, onRefreshTas
     } finally {
       setAnalyzingAll(false);
     }
+  };
+
+  const renderLinkButton = (text) => {
+    if (!text || typeof text !== 'string') return null;
+    const urlMatches = text.match(/(https?:\/\/[^\s]+)/gi);
+    if (!urlMatches || urlMatches.length === 0) return null;
+
+    const uniqueUrls = [...new Set(urlMatches.map(u => u.replace(/[.,)!]*$/, '')))];
+
+    return (
+      <div className="flex flex-wrap items-center gap-2 mt-2">
+        {uniqueUrls.map((url, idx) => {
+          const lower = url.toLowerCase();
+          const isMeeting = lower.includes('meet.google.com') || lower.includes('zoom.us') || lower.includes('teams.microsoft.com') || lower.includes('webex.com');
+          const isPayment = lower.includes('pay') || lower.includes('invoice') || lower.includes('stripe') || lower.includes('paypal') || lower.includes('upi');
+
+          let label = 'Open Link';
+          let btnClass = 'bg-purple-600 hover:bg-purple-700 text-white shadow-purple-500/20';
+          let IconComp = ExternalLink;
+
+          if (isMeeting) {
+            label = '📹 Join Meeting';
+            btnClass = 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-500/20';
+            IconComp = Video;
+          } else if (isPayment) {
+            label = '💳 Pay Now';
+            btnClass = 'bg-[#0095f6] hover:bg-[#1877f2] text-white shadow-blue-500/20';
+            IconComp = CreditCard;
+          }
+
+          return (
+            <a
+              key={idx}
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-extrabold shadow-md transition-all ${btnClass}`}
+            >
+              <IconComp className="w-3.5 h-3.5" />
+              <span>{label}</span>
+              <ExternalLink className="w-3 h-3 opacity-70" />
+            </a>
+          );
+        })}
+      </div>
+    );
   };
 
   const handleToggleComplete = async (taskId, currentStatus) => {
@@ -495,6 +544,7 @@ export default function AIAnalyticsPage({ tasks = [], onJumpToChat, onRefreshTas
                         ) : task.summary ? (
                           <p className="text-[11px] text-slate-500 mt-0.5 truncate font-medium">{task.summary}</p>
                         ) : null}
+                        {renderLinkButton(`${task.title} ${task.originalMessage || ''} ${task.verdict || ''}`)}
                       </td>
 
                       {/* Category */}

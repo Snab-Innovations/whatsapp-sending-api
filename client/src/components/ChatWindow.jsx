@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, User, Users, MessageSquare, Search, CheckCheck, Loader2, Sparkles, ShieldAlert, Zap, Clock, Calendar, AlertTriangle, Briefcase, CreditCard, CheckCircle2 } from 'lucide-react';
+import { Send, User, Users, MessageSquare, Search, CheckCheck, Loader2, Sparkles, ShieldAlert, Zap, Clock, Calendar, AlertTriangle, Briefcase, CreditCard, CheckCircle2, Video, ExternalLink } from 'lucide-react';
 import { getAIReplySuggestions } from '../services/api';
 
 export default function ChatWindow({ chat, messages, loadingMessages, onSendMessage }) {
@@ -94,13 +94,60 @@ export default function ChatWindow({ chat, messages, loadingMessages, onSendMess
         )}
 
         {verdict && (
-          <div className={`w-full mt-1.5 p-2 rounded-xl text-[11px] leading-snug font-medium ${fromMe ? 'bg-white/15 text-white border border-white/20' : 'bg-purple-50 text-purple-900 border border-purple-200'}`}>
+          <div className={`w-full text-xs font-medium p-2.5 rounded-xl mt-1.5 ${fromMe ? 'bg-white/10 text-white border border-white/20' : 'bg-purple-50 text-purple-900 border border-purple-200'}`}>
             <span className="font-extrabold flex items-center gap-1 mb-0.5">
-              <Sparkles className="w-3 h-3 text-pink-500" /> AI Verdict:
+              ⚡ AI Verdict:
             </span>
             {verdict}
           </div>
         )}
+      </div>
+    );
+  };
+
+  const renderLinkButton = (text, fromMe) => {
+    if (!text || typeof text !== 'string') return null;
+    const urlMatches = text.match(/(https?:\/\/[^\s]+)/gi);
+    if (!urlMatches || urlMatches.length === 0) return null;
+
+    const uniqueUrls = [...new Set(urlMatches.map(u => u.replace(/[.,)!]*$/, '')))];
+
+    return (
+      <div className="flex flex-wrap items-center gap-2 mt-2">
+        {uniqueUrls.map((url, idx) => {
+          const lower = url.toLowerCase();
+          const isMeeting = lower.includes('meet.google.com') || lower.includes('zoom.us') || lower.includes('teams.microsoft.com') || lower.includes('webex.com');
+          const isPayment = lower.includes('pay') || lower.includes('invoice') || lower.includes('stripe') || lower.includes('paypal') || lower.includes('upi');
+
+          let label = 'Open Link';
+          let btnClass = fromMe ? 'bg-white/20 hover:bg-white/30 text-white' : 'bg-purple-600 hover:bg-purple-700 text-white shadow-purple-500/20';
+          let IconComp = ExternalLink;
+
+          if (isMeeting) {
+            label = '📹 Join Meeting';
+            btnClass = fromMe ? 'bg-emerald-500 text-white font-black' : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-500/20';
+            IconComp = Video;
+          } else if (isPayment) {
+            label = '💳 Pay Now';
+            btnClass = fromMe ? 'bg-white text-[#0095f6] font-black' : 'bg-[#0095f6] hover:bg-[#1877f2] text-white shadow-blue-500/20';
+            IconComp = CreditCard;
+          }
+
+          return (
+            <a
+              key={idx}
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-extrabold shadow-md transition-all ${btnClass}`}
+            >
+              <IconComp className="w-3.5 h-3.5" />
+              <span>{label}</span>
+              <ExternalLink className="w-3 h-3 opacity-70" />
+            </a>
+          );
+        })}
       </div>
     );
   };
@@ -212,6 +259,9 @@ export default function ChatWindow({ chat, messages, loadingMessages, onSendMess
                   <p className="text-xs sm:text-sm whitespace-pre-wrap leading-relaxed font-normal">
                     {msg.body}
                   </p>
+
+                  {/* Direct Link Action Button */}
+                  {renderLinkButton(msg.body, fromMe)}
 
                   {/* AI Analysis Badges & Verdict */}
                   {renderAIBadges(msg.aiAnalysis, fromMe)}

@@ -25,7 +25,8 @@ import {
   TrendingUp,
   Loader2,
   MessageCircle,
-  ChevronDown
+  ChevronDown,
+  Video
 } from 'lucide-react';
 import { analyzeAllMessages, updateTask } from '../services/api';
 
@@ -169,6 +170,53 @@ export default function MainDashboard({
       default:
         return <FolderKanban className="w-3.5 h-3.5 text-slate-400" />;
     }
+  };
+
+  const renderLinkButton = (text) => {
+    if (!text || typeof text !== 'string') return null;
+    const urlMatches = text.match(/(https?:\/\/[^\s]+)/gi);
+    if (!urlMatches || urlMatches.length === 0) return null;
+
+    const uniqueUrls = [...new Set(urlMatches.map(u => u.replace(/[.,)!]*$/, '')))];
+
+    return (
+      <div className="flex flex-wrap items-center gap-2 mt-2">
+        {uniqueUrls.map((url, idx) => {
+          const lower = url.toLowerCase();
+          const isMeeting = lower.includes('meet.google.com') || lower.includes('zoom.us') || lower.includes('teams.microsoft.com') || lower.includes('webex.com');
+          const isPayment = lower.includes('pay') || lower.includes('invoice') || lower.includes('stripe') || lower.includes('paypal') || lower.includes('upi');
+
+          let label = 'Open Link';
+          let btnClass = 'bg-purple-600 hover:bg-purple-700 text-white shadow-purple-500/20';
+          let IconComp = ExternalLink;
+
+          if (isMeeting) {
+            label = '📹 Join Meeting';
+            btnClass = 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-500/20';
+            IconComp = Video;
+          } else if (isPayment) {
+            label = '💳 Pay Now';
+            btnClass = 'bg-[#0095f6] hover:bg-[#1877f2] text-white shadow-blue-500/20';
+            IconComp = CreditCard;
+          }
+
+          return (
+            <a
+              key={idx}
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-extrabold shadow-md transition-all ${btnClass}`}
+            >
+              <IconComp className="w-3.5 h-3.5" />
+              <span>{label}</span>
+              <ExternalLink className="w-3 h-3 opacity-70" />
+            </a>
+          );
+        })}
+      </div>
+    );
   };
 
   return (
@@ -375,6 +423,7 @@ export default function MainDashboard({
                     <p className="text-xs text-slate-800 bg-white p-3 rounded-xl border border-slate-200 line-clamp-2 leading-relaxed shadow-xs">
                       "{item.body}"
                     </p>
+                    {renderLinkButton(`${item.body} ${item.verdict || ''}`)}
                   </div>
 
                   <div className="space-y-2 pt-2 border-t border-slate-200/80">
@@ -525,6 +574,7 @@ export default function MainDashboard({
                       ) : task.originalMessage && (
                         <p className="text-xs text-slate-500 italic truncate">"{task.originalMessage}"</p>
                       )}
+                      {renderLinkButton(`${task.title} ${task.originalMessage || ''} ${task.verdict || ''}`)}
                     </div>
                   </div>
 
