@@ -113,6 +113,20 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
+  // 🔄 Status Polling Engine for QR Code & initialization updates
+  useEffect(() => {
+    if (clientState.status !== 'READY') {
+      const statusInterval = setInterval(() => {
+        getStatus()
+          .then(state => {
+            if (state) setClientState(state);
+          })
+          .catch(() => null);
+      }, 2000);
+      return () => clearInterval(statusInterval);
+    }
+  }, [clientState.status]);
+
   // Fetch chats and tasks when status changes to READY, and maintain 1.5s real-time sync
   useEffect(() => {
     if (clientState.status === 'READY') {

@@ -807,12 +807,13 @@ app.post('/api/auth/set-passcode', verifyPasscodeAuth, (req, res) => {
 });
 
 // --- Protected API Endpoints ---
-app.get('/api/events', verifyPasscodeAuth, (req, res) => {
+app.get('/api/events', (req, res) => {
   const session = req.sessionInstance;
 
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no');
   res.flushHeaders();
 
   session.sseClients.add(res);
