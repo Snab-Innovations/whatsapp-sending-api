@@ -2,10 +2,14 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "http://54.173.200.176:5001/api/:path*"
+      "destination": "https://whatsapp-task-manager-ai4d.onrender.com/api/:path*"
     },
     {
-      "source": "/(.*)",
+      "source": "/ping",
+      "destination": "https://whatsapp-task-manager-ai4d.onrender.com/ping"
+    },
+    {
+      "source": "/:path*",
       "destination": "/index.html"
     }
   ]
