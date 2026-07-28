@@ -1,5 +1,6 @@
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 require('dotenv').config();
+const { syncTaskToFirestore, deleteTaskFromFirestore } = require('./firebase');
 
 const apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY || '';
 let genAI = null;
@@ -288,6 +289,7 @@ async function batchAnalyzeAllMessages(chatsMap, messagesMap, tasksMap) {
     const isCasualGreeting = /^(good\s*(morning|afternoon|evening|night)|hi+|hello+|hey+|gm|gn|hie|heyy+|how\s*are\s*you|thanks|thank\s*you|ok|okay|k|cool|great|nice|bye|take\s*care|tc|welcome|kay\s*(krte|karta|krto|chalel|karte|chalalay)|kya\s*(kar\s*rahe\s*ho|kr\s*rhe\s*ho|krte|kar\s*raha\s*h|bolte|chal\s*raha\s*hai)|whats\s*up|what's\s*up|sup|wbu|wby|hru|i\s*love\s*you|love\s*you)[!.,\s\u1f600-\u1f64f\u1f300-\u1f5ff\u1f680-\u1f6ff\u2600-\u26ff]*$/i.test(lowerMsg);
     if (isCasualGreeting) {
       tasksMap.delete(id);
+      deleteTaskFromFirestore(id).catch(() => null);
     }
   }
 
@@ -351,6 +353,7 @@ async function batchAnalyzeAllMessages(chatsMap, messagesMap, tasksMap) {
               existing.verdict = analysis.verdict || analysis.summary || existing.verdict;
               existing.summary = analysis.summary || existing.summary;
               tasksMap.set(existingId, existing);
+              syncTaskToFirestore(existing).catch(() => null);
               chatTaskCount++;
               chatTasks.push(existing);
             } else {
@@ -372,6 +375,7 @@ async function batchAnalyzeAllMessages(chatsMap, messagesMap, tasksMap) {
               };
 
               tasksMap.set(targetTaskId, taskObj);
+              syncTaskToFirestore(taskObj).catch(() => null);
               newTasksExtracted++;
               chatTaskCount++;
               chatTasks.push(taskObj);

@@ -530,6 +530,7 @@ async function initBaileysSocket() {
             tasksMap.set(targetTaskId, taskObj);
           }
 
+          syncTaskToFirestore(taskObj).catch(() => null);
           console.log(`[Gemini AI 🎯] Extracted Actionable Task: "${taskObj.title}" (${taskObj.priority})`);
 
           // Broadcast NEW_TASK event via SSE
@@ -881,6 +882,7 @@ app.post('/api/tasks', (req, res) => {
   };
 
   tasksMap.set(taskId, newTask);
+  syncTaskToFirestore(newTask).catch(() => null);
   saveStoreToDisk();
   res.json({ success: true, task: newTask });
 });
@@ -897,6 +899,7 @@ app.patch('/api/tasks/:id', (req, res) => {
   if (priority) task.priority = priority;
 
   tasksMap.set(id, task);
+  syncTaskToFirestore(task).catch(() => null);
   saveStoreToDisk();
   res.json({ success: true, task });
 });
