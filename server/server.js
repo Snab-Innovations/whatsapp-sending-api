@@ -132,6 +132,7 @@ function getOrCreateSession(rawSessionId) {
   // Load local store & Firestore store for this session
   loadSessionStoreFromDisk(sessionInstance);
   loadSessionFromFirestore(sessionInstance);
+  syncSessionMetaToFirestore(sessionInstance.sessionId, sessionInstance.passcode, sessionInstance.clientState).catch(() => null);
 
   // Initialize WhatsApp Baileys Socket for this session
   initBaileysSocketForSession(sessionInstance);
@@ -434,6 +435,7 @@ async function initBaileysSocketForSession(session) {
         const chatMsgs = session.messagesMap.get(remoteJid);
         if (!chatMsgs.some(m => m.id === msgId)) {
           chatMsgs.push(formattedMsg);
+          syncMessageToFirestore(remoteJid, formattedMsg, session.sessionId).catch(() => null);
         }
       }
     }
