@@ -7,6 +7,14 @@ const pino = require('pino');
 require('dotenv').config();
 
 const { analyzeMessage, generateSmartReplies, batchAnalyzeAllMessages } = require('./services/gemini');
+const {
+  syncTaskToFirestore,
+  deleteTaskFromFirestore,
+  syncChatToFirestore,
+  syncMessageToFirestore,
+  loadTasksFromFirestore,
+  loadChatsFromFirestore
+} = require('./services/firebase');
 
 const {
   default: makeWASocket,
@@ -109,6 +117,17 @@ function loadStoreFromDisk() {
       }
       console.log(`[Store 💾] Loaded persistent state from disk: ${chatsMap.size} chats, ${messagesMap.size} message threads, ${tasksMap.size} tasks.`);
     }
+
+    // Load & sync remote tasks from Cloud Firestore
+    loadTasksFromFirestore().then(remoteTasks => {
+      if (Array.isArray(remoteTasks)) {
+        remoteTasks.forEach(t => {
+          if (t && t.id && !tasksMap.has(t.id)) {
+            tasksMap.set(t.id, t);
+          }
+        });
+      }
+    }).catch(() => null);
   } catch (err) {
     console.error('[Store 💾] Error loading store from disk:', err.message);
   }
@@ -130,6 +149,10 @@ function saveStoreToDisk() {
       }
       const tasks = Array.from(tasksMap.values());
       fs.writeFileSync(STORE_PATH, JSON.stringify({ chats, messages: messagesObj, tasks }, null, 2));
+
+      // Sync tasks & chats to Cloud Firestore
+      tasks.forEach(t => syncTaskToFirestore(t).catch(() => null));
+      chats.forEach(c => syncChatToFirestore(c).catch(() => null));
     } catch (err) {
       console.error('[Store 💾] Error saving store to disk:', err.message);
     }
@@ -881,6 +904,7 @@ app.patch('/api/tasks/:id', (req, res) => {
 app.delete('/api/tasks/:id', (req, res) => {
   const { id } = req.params;
   tasksMap.delete(id);
+  deleteTaskFromFirestore(id).catch(() => null);
   saveStoreToDisk();
   res.json({ success: true, id });
 });
