@@ -441,7 +441,7 @@ async function initBaileysSocket() {
   });
 
   // Real-time Messages Listener
-  sock.ev.on('messages.upsert', async ({ messages: rawMsgs }) => {
+  sock.ev.on('messages.upsert', async ({ messages: rawMsgs, type }) => {
     for (const msg of rawMsgs) {
       if (!msg.message) continue;
 
@@ -449,14 +449,29 @@ async function initBaileysSocket() {
       if (!rawJid || rawJid === 'status@broadcast') continue;
       const remoteJid = jidNormalizedUser(rawJid);
 
+      // Unwrap nested messages (ephemeral, view-once, document with caption, etc.)
+      let content = msg.message;
+      if (content?.ephemeralMessage?.message) content = content.ephemeralMessage.message;
+      if (content?.viewOnceMessage?.message) content = content.viewOnceMessage.message;
+      if (content?.viewOnceMessageV2?.message) content = content.viewOnceMessageV2.message;
+      if (content?.documentWithCaptionMessage?.message) content = content.documentWithCaptionMessage.message;
+
       const body =
-        msg.message.conversation ||
-        msg.message.extendedTextMessage?.text ||
-        msg.message.imageMessage?.caption ||
-        msg.message.videoMessage?.caption ||
-        (msg.message.imageMessage ? '📷 Image' : '') ||
-        (msg.message.audioMessage ? '🎵 Audio' : '') ||
-        (msg.message.documentMessage ? '📄 Document' : '') ||
+        content?.conversation ||
+        content?.extendedTextMessage?.text ||
+        content?.imageMessage?.caption ||
+        content?.videoMessage?.caption ||
+        content?.documentMessage?.caption ||
+        content?.templateButtonReplyMessage?.selectedId ||
+        content?.buttonsResponseMessage?.selectedButtonId ||
+        content?.interactiveResponseMessage?.nativeFlowResponseMessage?.paramsJson ||
+        (content?.imageMessage ? '📷 Image' : '') ||
+        (content?.videoMessage ? '🎥 Video' : '') ||
+        (content?.audioMessage ? '🎵 Audio' : '') ||
+        (content?.documentMessage ? '📄 Document' : '') ||
+        (content?.stickerMessage ? '🎨 Sticker' : '') ||
+        (content?.contactMessage || content?.contactsArrayMessage ? '👤 Contact' : '') ||
+        (content?.locationMessage || content?.liveLocationMessage ? '📍 Location' : '') ||
         '';
 
       const timestamp = Number(msg.messageTimestamp || Math.floor(Date.now() / 1000));
@@ -470,89 +485,30 @@ async function initBaileysSocket() {
         to: fromMe ? remoteJid : (sock.user ? jidNormalizedUser(sock.user.id) : ''),
         fromMe,
         timestamp,
-        type: msg.message.imageMessage ? 'image' : 'chat',
-        hasMedia: Boolean(msg.message.imageMessage || msg.message.videoMessage || msg.message.audioMessage),
+        type: content?.imageMessage ? 'image' : (content?.videoMessage ? 'video' : (content?.audioMessage ? 'audio' : 'chat')),
+        hasMedia: Boolean(content?.imageMessage || content?.videoMessage || content?.audioMessage || content?.documentMessage),
         author: msg.key.participant || null,
         chatId: remoteJid
       };
 
-      // 🤖 Analyze message with Gemini AI
       const existingChat = chatsMap.get(remoteJid);
       const pushName = msg.pushName || null;
       let chatName = resolveDisplayName(remoteJid, existingChat?.name, pushName);
       if (existingChat && pushName) {
         existingChat.name = pushName;
       }
-      
-      const aiAnalysis = await analyzeMessage(body, chatName).catch(() => null);
-      if (aiAnalysis) {
-        formattedMsg.aiAnalysis = aiAnalysis;
 
-        if (aiAnalysis.hasTask) {
-          const targetTaskId = `task-${msgId}`;
-          let existingId = null;
-          if (tasksMap.has(targetTaskId)) {
-            existingId = targetTaskId;
-          } else {
-            for (const [id, t] of tasksMap.entries()) {
-              if (t.chatId === remoteJid && t.originalMessage === body) {
-                existingId = id;
-                break;
-              }
-            }
-          }
-
-          let taskObj;
-          if (existingId) {
-            taskObj = tasksMap.get(existingId);
-            taskObj.priority = aiAnalysis.priority || taskObj.priority;
-            taskObj.category = aiAnalysis.category || taskObj.category;
-            taskObj.title = aiAnalysis.taskTitle || taskObj.title;
-            taskObj.dueDate = aiAnalysis.dueDate || taskObj.dueDate;
-            taskObj.verdict = aiAnalysis.verdict || aiAnalysis.summary || taskObj.verdict;
-            tasksMap.set(existingId, taskObj);
-          } else {
-            taskObj = {
-              id: targetTaskId,
-              title: aiAnalysis.taskTitle || body,
-              chatId: remoteJid,
-              chatName,
-              originalMessage: body,
-              priority: aiAnalysis.priority || 'MEDIUM',
-              category: aiAnalysis.category || 'General',
-              status: 'TO_DO',
-              dueDate: aiAnalysis.dueDate || 'Upcoming',
-              sentiment: aiAnalysis.sentiment || 'Neutral',
-              summary: aiAnalysis.summary || '',
-              verdict: aiAnalysis.verdict || aiAnalysis.summary || body,
-              createdAt: new Date().toISOString()
-            };
-            tasksMap.set(targetTaskId, taskObj);
-          }
-
-          syncTaskToFirestore(taskObj).catch(() => null);
-          console.log(`[Gemini AI 🎯] Extracted Actionable Task: "${taskObj.title}" (${taskObj.priority})`);
-
-          // Broadcast NEW_TASK event via SSE
-          const taskPayload = `data: ${JSON.stringify({
-            eventType: 'NEW_TASK',
-            task: taskObj
-          })}\n\n`;
-          sseClients.forEach(res => res.write(taskPayload));
-        }
-      }
-
-      // Store message in messagesMap
+      // Store message in messagesMap immediately
       if (!messagesMap.has(remoteJid)) {
         messagesMap.set(remoteJid, []);
       }
       const chatMsgs = messagesMap.get(remoteJid);
       if (!chatMsgs.some(m => m.id === msgId)) {
         chatMsgs.push(formattedMsg);
-        if (chatMsgs.length > 200) chatMsgs.shift();
+        if (chatMsgs.length > 300) chatMsgs.shift();
       }
 
-      // Update chat in chatsMap
+      // Update chat in chatsMap immediately
       const updatedChat = existingChat || {
         id: remoteJid,
         name: chatName,
@@ -565,7 +521,6 @@ async function initBaileysSocket() {
       };
 
       updatedChat.name = chatName;
-
       updatedChat.timestamp = timestamp;
       if (!fromMe) {
         updatedChat.unreadCount = (updatedChat.unreadCount || 0) + 1;
@@ -579,17 +534,81 @@ async function initBaileysSocket() {
 
       chatsMap.set(remoteJid, updatedChat);
       saveStoreToDisk();
+      syncMessageToFirestore(remoteJid, formattedMsg).catch(() => null);
+      syncChatToFirestore(updatedChat).catch(() => null);
 
-      console.log(`[Baileys SSE] 📩 New message for ${remoteJid}: "${body}"`);
+      console.log(`[Baileys SSE] 📩 Instant New Message for ${remoteJid}: "${body}"`);
 
-      // Broadcast NEW_MESSAGE to React clients via SSE
+      // ⚡ INSTANT SSE BROADCAST (0ms latency to UI)
       const ssePayload = `data: ${JSON.stringify({
         eventType: 'NEW_MESSAGE',
         message: formattedMsg,
         chat: updatedChat
       })}\n\n`;
-
       sseClients.forEach(res => res.write(ssePayload));
+
+      // 🤖 Non-blocking Background Gemini AI Task Analysis
+      if (body && body.trim().length > 2 && type === 'notify') {
+        analyzeMessage(body, chatName)
+          .then((aiAnalysis) => {
+            if (!aiAnalysis) return;
+            formattedMsg.aiAnalysis = aiAnalysis;
+
+            if (aiAnalysis.hasTask) {
+              const targetTaskId = `task-${msgId}`;
+              let existingId = null;
+              if (tasksMap.has(targetTaskId)) {
+                existingId = targetTaskId;
+              } else {
+                for (const [id, t] of tasksMap.entries()) {
+                  if (t.chatId === remoteJid && t.originalMessage === body) {
+                    existingId = id;
+                    break;
+                  }
+                }
+              }
+
+              let taskObj;
+              if (existingId) {
+                taskObj = tasksMap.get(existingId);
+                taskObj.priority = aiAnalysis.priority || taskObj.priority;
+                taskObj.category = aiAnalysis.category || taskObj.category;
+                taskObj.title = aiAnalysis.taskTitle || taskObj.title;
+                taskObj.dueDate = aiAnalysis.dueDate || taskObj.dueDate;
+                taskObj.verdict = aiAnalysis.verdict || aiAnalysis.summary || taskObj.verdict;
+                tasksMap.set(existingId, taskObj);
+              } else {
+                taskObj = {
+                  id: targetTaskId,
+                  title: aiAnalysis.taskTitle || body,
+                  chatId: remoteJid,
+                  chatName,
+                  originalMessage: body,
+                  priority: aiAnalysis.priority || 'MEDIUM',
+                  category: aiAnalysis.category || 'General',
+                  status: 'TO_DO',
+                  dueDate: aiAnalysis.dueDate || 'Upcoming',
+                  sentiment: aiAnalysis.sentiment || 'Neutral',
+                  summary: aiAnalysis.summary || '',
+                  verdict: aiAnalysis.verdict || aiAnalysis.summary || body,
+                  createdAt: new Date().toISOString()
+                };
+                tasksMap.set(targetTaskId, taskObj);
+              }
+
+              syncTaskToFirestore(taskObj).catch(() => null);
+              console.log(`[Gemini AI 🎯] Extracted Actionable Task: "${taskObj.title}" (${taskObj.priority})`);
+
+              // Broadcast NEW_TASK event via SSE
+              const taskPayload = `data: ${JSON.stringify({
+                eventType: 'NEW_TASK',
+                task: taskObj
+              })}\n\n`;
+              sseClients.forEach(res => res.write(taskPayload));
+            }
+          })
+          .catch(err => console.error('[Gemini AI] Background analysis error:', err));
+      }
     }
   });
 
@@ -1043,9 +1062,20 @@ app.get('/api/ai/analytics', (req, res) => {
 });
 
 // Start Server
-app.listen(PORT, () => {
+const serverInstance = app.listen(PORT, () => {
   console.log(`\n🚀 Baileys + Gemini AI Server listening on http://localhost:${PORT}`);
   initBaileysSocket();
+});
+
+serverInstance.on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    console.log(`\n🟢 Port ${PORT} is ALREADY IN USE by your background macOS service (com.whatsapp.taskmanager).`);
+    console.log(`✨ The WhatsApp Task Manager backend is already online and running in the background!`);
+    console.log(`👉 You do NOT need to run 'npm start' manually.\n`);
+    process.exit(0);
+  } else {
+    console.error('Server error:', err);
+  }
 });
 
 // Clean shutdown signal handlers

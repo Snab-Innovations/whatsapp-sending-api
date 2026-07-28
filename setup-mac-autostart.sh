@@ -28,7 +28,7 @@ cat <<EOF > "$PLIST_PATH"
     <key>RunAtLoad</key>
     <true/>
     <key>KeepAlive</key>
-    <false/>
+    <true/>
     <key>StandardOutPath</key>
     <string>${PROJECT_DIR}/logs/launchagent.log</string>
     <key>StandardErrorPath</key>
