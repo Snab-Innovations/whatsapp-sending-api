@@ -62,6 +62,17 @@ function getSafeSessionId(sessionId) {
 /**
  * Syncs / updates a task in Cloud Firestore collection
  */
+function handleFirestoreError(action, err) {
+  if (err && (err.code === 'resource-exhausted' || (err.message && err.message.includes('RESOURCE_EXHAUSTED')))) {
+    console.warn(`[Firebase ⚠️ Quota Limit] Daily Firestore free limit reached for "findyourself-a7369". Local disk storage is handling ${action}.`);
+  } else {
+    console.error(`[Firebase ➔ Firestore Error] ${action}:`, err.message || err);
+  }
+}
+
+/**
+ * Syncs / updates a task in Cloud Firestore collection
+ */
 async function syncTaskToFirestore(task, sessionId = 'default') {
   if (!db || !task || !task.id) return;
   try {
@@ -74,7 +85,7 @@ async function syncTaskToFirestore(task, sessionId = 'default') {
     await setDoc(taskRef, cleanedPayload, { merge: true });
     console.log(`[Firebase ➔ Firestore 💾] Synced Task "${task.id}" for session "${safeSession}".`);
   } catch (err) {
-    console.error(`[Firebase ➔ Firestore] Error syncing task ${task.id}:`, err.message);
+    handleFirestoreError(`syncTask(${task.id})`, err);
   }
 }
 
@@ -89,7 +100,7 @@ async function deleteTaskFromFirestore(taskId, sessionId = 'default') {
     await deleteDoc(taskRef);
     console.log(`[Firebase ➔ Firestore 🗑️] Deleted Task "${taskId}" for session "${safeSession}".`);
   } catch (err) {
-    console.error(`[Firebase ➔ Firestore] Error deleting task ${taskId}:`, err.message);
+    handleFirestoreError(`deleteTask(${taskId})`, err);
   }
 }
 
@@ -108,7 +119,7 @@ async function syncChatToFirestore(chat, sessionId = 'default') {
     });
     await setDoc(chatRef, cleanedPayload, { merge: true });
   } catch (err) {
-    console.error(`[Firebase ➔ Firestore] Error syncing chat ${chat.id}:`, err.message);
+    handleFirestoreError(`syncChat(${chat.id})`, err);
   }
 }
 
@@ -127,7 +138,7 @@ async function syncMessageToFirestore(chatId, message, sessionId = 'default') {
     });
     await setDoc(msgRef, cleanedPayload, { merge: true });
   } catch (err) {
-    console.error(`[Firebase ➔ Firestore] Error syncing message ${message.id}:`, err.message);
+    handleFirestoreError(`syncMessage(${message.id})`, err);
   }
 }
 
