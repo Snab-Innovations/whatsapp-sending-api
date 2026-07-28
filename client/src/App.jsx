@@ -111,22 +111,41 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  // Fetch chats and tasks when status changes to READY or when window comes into view
+  // Fetch chats and tasks when status changes to READY, and maintain 1.5s real-time sync
   useEffect(() => {
     if (clientState.status === 'READY') {
       fetchChats();
       fetchTasks();
-      
-      // Auto-sync polling every 4 seconds to guarantee zero missed messages in Direct Messages
-      const pollInterval = setInterval(() => {
-        fetchChats();
-        fetchTasks();
-        if (activeChatRef.current) {
-          getChatMessages(activeChatRef.current.id, 100)
-            .then((res) => {
-              if (res && Array.isArray(res.messages)) {
-                setMessages((prev) => {
-                  if (res.messages.length !== prev.length || (res.messages.length > 0 && prev.length > 0 && res.messages[res.messages.length - 1].id !== prev[prev.length - 1].id)) {
+
+      // Real-time 1.5-second polling engine ensuring zero delayed messages
+      const syncInterval = setInterval(() => {
+        getChats()
+          .then(res => {
+            if (res && res.chats && res.chats.length > 0) {
+              setChats(res.chats);
+            }
+          })
+          .catch(() => null);
+
+        getTasks()
+          .then(res => {
+            if (res && res.tasks) {
+              setTasks(res.tasks);
+            }
+          })
+          .catch(() => null);
+
+        if (activeChatRef.current && activeChatRef.current.id) {
+          getChatMessages(activeChatRef.current.id, 50)
+            .then(res => {
+              if (res && res.messages) {
+                setMessages(prev => {
+                  if (
+                    prev.length !== res.messages.length ||
+                    (res.messages.length > 0 &&
+                      prev.length > 0 &&
+                      prev[prev.length - 1].id !== res.messages[res.messages.length - 1].id)
+                  ) {
                     return res.messages;
                   }
                   return prev;
@@ -135,7 +154,7 @@ export default function App() {
             })
             .catch(() => null);
         }
-      }, 4000);
+      }, 1500);
 
       const handleVisibilityChange = () => {
         if (document.visibilityState === 'visible') {
@@ -146,7 +165,7 @@ export default function App() {
       window.addEventListener('visibilitychange', handleVisibilityChange);
 
       return () => {
-        clearInterval(pollInterval);
+        clearInterval(syncInterval);
         window.removeEventListener('visibilitychange', handleVisibilityChange);
       };
     } else {
