@@ -33,7 +33,7 @@ You are an expert AI executive productivity assistant analyzing a WhatsApp messa
 Analyze the message and extract task details, priority, due date, category, sentiment, and an explicit AI Verdict / Detailed Decision.
 
 CRITICAL TASK EXTRACTION & CASUAL GREETINGS RULES:
-1. MESSAGES CONTAINING ONLY GREETINGS, PLEASANTRIES, OR CASUAL CONVERSATION (e.g. 'good morning', 'good evening', 'hi', 'hello', 'how are you', 'thank you', 'okay', 'bye') ARE NOT TASKS!
+1. MESSAGES CONTAINING ONLY GREETINGS, PLEASANTRIES, OR CASUAL CONVERSATION (e.g. 'good morning', 'good evening', 'hi', 'hello', 'how are you', 'thank you', 'okay', 'bye', 'kay krte', 'kya kar rahe ho') ARE NOT TASKS!
    - You MUST set "hasTask": false, "taskTitle": null, and "verdict": null for all casual greetings!
 2. ANY message mentioning an INTERVIEW, JOB OPPORTUNITY, INTERVIEW LOCATION/VENUE (e.g. NEC, Nashik, SNAB Innovation), MEETING, APPOINTMENT, DEADLINE, PAYMENT, or URGENT ASSIGNMENT MUST BE CLASSIFIED AS:
    - "hasTask": true
@@ -86,42 +86,153 @@ Respond ONLY with a valid JSON object matching this exact schema (no markdown fe
 }
 
 /**
- * Generates 3 smart AI reply suggestions for a conversation
+ * Enhanced heuristic smart reply fallback generator matching exact language & chat context
  */
-async function generateSmartReplies(messages = [], contactName = 'Contact') {
-  const defaultReplies = [
-    `Thanks for the update, ${contactName}! I'll check it right away.`,
-    `Got it! Let me get back to you shortly.`,
+function generateContextualReplies(messages = [], contactName = 'Contact') {
+  if (!messages || messages.length === 0) {
+    return [
+      `Hello ${contactName}! How can I help you today?`,
+      `Hi ${contactName}! Let me know if you need anything.`,
+      `Hey! Following up on our chat.`
+    ];
+  }
+
+  const lastMsgObj = messages[messages.length - 1];
+  const lastMsgText = (lastMsgObj ? lastMsgObj.body || '' : '').trim();
+  const lower = lastMsgText.toLowerCase();
+
+  // 1. Meeting / Google Meet / Zoom Links
+  if (lower.includes('meet.google.com') || lower.includes('zoom.us') || lower.includes('teams.microsoft')) {
+    return [
+      `Joining the meeting link right now!`,
+      `Got the link, joining in 2 minutes!`,
+      `Thanks! I am ready for the call.`
+    ];
+  }
+
+  // 2. Interview / Schedule / Location / Venue
+  if (lower.includes('interview') || lower.includes('snab') || lower.includes('venue') || lower.includes('location') || lower.includes('schedule') || lower.includes('nec') || lower.includes('nashik')) {
+    return [
+      `Confirmed! I will attend the interview on time at the venue.`,
+      `Thank you for scheduling! Could you please share the exact Google Maps location?`,
+      `Got it! Looking forward to the interview session.`
+    ];
+  }
+
+  // 3. Marathi Casual Chat ("kay krte", "kasa ahes", "kay chalalay")
+  if (lower.includes('kay krte') || lower.includes('kay karta') || lower.includes('kay krto') || lower.includes('kasa ahes') || lower.includes('kasi ahes') || lower.includes('kay chalalay')) {
+    return [
+      `Kahi nahi, bas kaam karat ahe. Tu sang?`,
+      `Mast chalalay! Tu kay kartoy/kartey?`,
+      `Busy in work right now. Bol na!`
+    ];
+  }
+
+  // 4. Hinglish Casual Chat ("kya kar rahe ho", "kya kr rhe ho", "kya chal raha hai", "kya scene hai")
+  if (lower.includes('kya kar rahe') || lower.includes('kya kr rhe') || lower.includes('kya chal raha') || lower.includes('kya bolte')) {
+    return [
+      `Kuch nahi, bas office work handle kar raha hu. Tum batao?`,
+      `Bas badhiya! Tum batao kya scene hai?`,
+      `Working on tasks right now. Bol kya update hai?`
+    ];
+  }
+
+  // 5. English Casual Greetings ("good morning", "hi", "hello", "how are you")
+  if (/^(good\s*(morning|afternoon|evening|night)|hi+|hello+|hey+)[!.,\s]*$/i.test(lower)) {
+    return [
+      `Good morning ${contactName}! Hope you have a productive day ahead.`,
+      `Hello ${contactName}! How can I help you today?`,
+      `Hey! Hope all is going well.`
+    ];
+  }
+
+  if (lower.includes('how are you') || lower.includes('hru') || lower.includes('wbu')) {
+    return [
+      `I am doing great, thanks for asking! How are you doing?`,
+      `Doing good! How is everything on your side?`,
+      `All well here! What about you?`
+    ];
+  }
+
+  // 6. Payment / Financial Messages
+  if (lower.includes('payment') || lower.includes('bill') || lower.includes('invoice') || lower.includes('money') || lower.includes('pay')) {
+    return [
+      `Received the payment details. Will process it shortly!`,
+      `Could you please share the invoice / receipt PDF?`,
+      `Payment is done! Please verify at your end.`
+    ];
+  }
+
+  // 7. Tasks / Submissions / Reports
+  if (lower.includes('submit') || lower.includes('report') || lower.includes('project') || lower.includes('task') || lower.includes('document') || lower.includes('send')) {
+    return [
+      `Working on this right now. Will share the update soon!`,
+      `I will review and send the documents shortly.`,
+      `Got it! Will get this done today.`
+    ];
+  }
+
+  // 8. General Contextual Fallbacks
+  return [
+    `Thanks for the update, ${contactName}! I'll get back to you right away.`,
+    `Got it! Let me check and confirm shortly.`,
     `Sounds good! Will follow up on this.`
   ];
+}
 
-  if (!model || !messages || messages.length === 0) {
-    return defaultReplies;
+/**
+ * Generates 3 smart personalized AI reply suggestions for a conversation
+ */
+async function generateSmartReplies(messages = [], contactName = 'Contact') {
+  const contextualDefaults = generateContextualReplies(messages, contactName);
+
+  if (!genAI || !messages || messages.length === 0) {
+    return contextualDefaults;
   }
 
   try {
-    const context = messages.slice(-5).map(m => `${m.fromMe ? 'Me' : contactName}: ${m.body}`).join('\n');
+    const recentContext = messages.slice(-10).map(m => `${m.fromMe ? 'Me' : contactName}: ${m.body}`).join('\n');
     const prompt = `
-You are a smart AI WhatsApp assistant. Based on the recent chat history below, generate 3 short, natural, appropriate reply options.
+You are an expert personalized WhatsApp AI smart reply assistant.
+Analyze the conversation context below with ${contactName} and suggest 3 highly accurate, context-aware, personalized replies.
 
-Recent Chat:
-${context}
+RULES:
+1. Matches the tone, language (English, Hinglish, Marathi, Hindi), and topic of the conversation!
+2. If the last message is a greeting (e.g. 'kay krte', 'good morning', 'kya kar rahe ho'), reply appropriately in that exact language/vibe.
+3. If the last message is about a meeting, schedule, venue, or link, provide direct actionable responses (e.g. 'I will attend on time', 'Joining link now').
 
-Respond ONLY with a valid JSON array of 3 strings:
-["Professional reply...", "Casual reply...", "Direct action reply..."]`;
+Recent Chat History:
+${recentContext}
 
-    const result = await model.generateContent(prompt);
-    const text = result.response.text().trim();
-    const cleanJson = text.replace(/```json/gi, '').replace(/```/g, '').trim();
-    const parsed = JSON.parse(cleanJson);
-    if (Array.isArray(parsed) && parsed.length >= 3) {
-      return parsed.slice(0, 3);
+Respond ONLY with a valid JSON array of 3 strings (no markdown, no extra text):
+["Response 1...", "Response 2...", "Response 3..."]`;
+
+    const candidateModels = ['gemini-1.5-flash-latest', 'gemini-1.5-flash', 'gemini-1.5-pro-latest', 'gemini-pro'];
+    let result;
+
+    for (const mName of candidateModels) {
+      try {
+        const m = genAI.getGenerativeModel({ model: mName });
+        result = await m.generateContent(prompt);
+        if (result) break;
+      } catch (e) {
+        // try next model candidate
+      }
+    }
+
+    if (result) {
+      const text = result.response.text().trim();
+      const cleanJson = text.replace(/```json/gi, '').replace(/```/g, '').trim();
+      const parsed = JSON.parse(cleanJson);
+      if (Array.isArray(parsed) && parsed.length >= 3) {
+        return parsed.slice(0, 3);
+      }
     }
   } catch (err) {
-    console.warn('[Gemini AI] Smart reply error:', err.message);
+    console.warn('[Gemini AI] Smart reply error, using contextual fallback:', err.message);
   }
 
-  return defaultReplies;
+  return contextualDefaults;
 }
 
 /**
