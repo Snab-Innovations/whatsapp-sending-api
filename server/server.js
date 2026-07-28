@@ -132,7 +132,6 @@ function getOrCreateSession(rawSessionId) {
   // Load local store & Firestore store for this session
   loadSessionStoreFromDisk(sessionInstance);
   loadSessionFromFirestore(sessionInstance);
-  syncSessionMetaToFirestore(sessionInstance.sessionId, sessionInstance.passcode, sessionInstance.clientState).catch(() => null);
 
   // Initialize WhatsApp Baileys Socket for this session
   initBaileysSocketForSession(sessionInstance);
@@ -794,6 +793,13 @@ app.post('/api/auth/verify-passcode', async (req, res) => {
         delete session.isFresh;
       }
     } catch (e) {}
+  }
+
+  // If session is fresh (first time logging into this Session ID), bind the provided passcode!
+  if (session && session.isFresh && passcode && String(passcode).trim().length >= 4) {
+    session.passcode = String(passcode).trim();
+    delete session.isFresh;
+    saveSessionStoreToDisk(session);
   }
 
   const isValid = Boolean(
