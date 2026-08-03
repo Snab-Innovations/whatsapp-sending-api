@@ -440,19 +440,24 @@ const handleSetCredentials = (req, res) => {
     const cleanNewId = newSessionId.replace(/[^a-zA-Z0-9_-]/g, '_').substring(0, 64);
     if (cleanNewId !== session.sessionId) {
       const oldId = session.sessionId;
+      const oldSessionDir = path.join(SESSIONS_DIR, oldId);
+      const newSessionDir = path.join(SESSIONS_DIR, cleanNewId);
+
+      // Security Check: Session ID cannot be reassigned or duplicated across users
+      if (sessionsMap.has(cleanNewId) || fs.existsSync(newSessionDir)) {
+        return res.status(409).json({
+          success: false,
+          error: 'SESSION_ID_ALREADY_EXISTS',
+          message: `Session ID "${cleanNewId}" is already assigned to another user. Please choose a unique Session ID.`
+        });
+      }
 
       // 1. Delete old metadata document from Cloud Firestore
       deleteSessionMetaFromFirestore(oldId).catch(() => null);
 
-      // 2. Rename local session folder on disk from data/sessions/oldId to data/sessions/cleanNewId
-      const oldSessionDir = path.join(SESSIONS_DIR, oldId);
-      const newSessionDir = path.join(SESSIONS_DIR, cleanNewId);
-
+      // 2. Rename local session folder on disk
       if (fs.existsSync(oldSessionDir)) {
         try {
-          if (fs.existsSync(newSessionDir)) {
-            fs.rmSync(newSessionDir, { recursive: true, force: true });
-          }
           fs.renameSync(oldSessionDir, newSessionDir);
           console.log(`[Disk 💾] Renamed session folder on disk from "${oldId}" to "${cleanNewId}".`);
         } catch (renameErr) {

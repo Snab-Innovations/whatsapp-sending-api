@@ -714,6 +714,14 @@
       const qrImageState = document.getElementById('qrImageState');
       const qrImage = document.getElementById('qrImage');
 
+      if (currentStatus === 'READY' && !data.isLocked && data.passcode && data.sessionId) {
+        currentSessionId = data.sessionId;
+        currentPasscode = data.passcode;
+        localStorage.setItem('WHATSAPP_SESSION_ID', data.sessionId);
+        localStorage.setItem('WHATSAPP_PASSCODE', data.passcode);
+        showToast('WhatsApp Linked & Authenticated Successfully!', 'success');
+      }
+
       const hasStoredAuth = Boolean(
         localStorage.getItem('WHATSAPP_SESSION_ID') &&
         localStorage.getItem('WHATSAPP_PASSCODE')
