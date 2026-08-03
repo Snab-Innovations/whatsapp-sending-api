@@ -610,19 +610,16 @@
       })
       .then(res => res.json())
       .then(data => {
-        if (data && !data.isLocked && data.status === 'READY') {
+        if (data && !data.isLocked) {
           currentSessionId = targetId;
           currentPasscode = targetPass;
           localStorage.setItem('WHATSAPP_SESSION_ID', targetId);
           localStorage.setItem('WHATSAPP_PASSCODE', targetPass);
           showToast('Session logged in successfully!', 'success');
           updateUIState(data);
-        } else if (data && data.isLocked) {
-          errBox.classList.remove('hidden');
-          errText.innerText = 'Incorrect Access PIN for session "' + targetId + '". Access denied.';
         } else {
           errBox.classList.remove('hidden');
-          errText.innerText = 'Session status is "' + (data.status || 'OFFLINE') + '". Scan QR code to connect.';
+          errText.innerText = 'Incorrect Access PIN for session "' + targetId + '". Access denied.';
         }
       })
       .catch(err => {
