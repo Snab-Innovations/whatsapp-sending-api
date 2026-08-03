@@ -3,379 +3,915 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>WhatsApp AI Task Planner & Executive Dashboard</title>
-  
-  <!-- Google Fonts: Inter -->
+  <title>WhatsApp Engine — Professional API Hub</title>
+
+  <!-- Google Fonts: Inter (Apple SF alternative) & JetBrains Mono -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
-  
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
-  
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+            mono: ['JetBrains Mono', 'Menlo', 'Courier New', 'monospace'],
+          },
+          colors: {
+            apple: {
+              bg: '#f5f5f7',
+              card: '#ffffff',
+              subtle: '#e8e8ed',
+              dark: '#1d1d1f',
+              text: '#1d1d1f',
+              secondary: '#86868b',
+              accent: '#0071e3',
+              accentHover: '#0077ed',
+              green: '#34c759',
+              greenBg: '#eefbf1'
+            }
+          }
+        }
+      }
+    }
+  </script>
+
   <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
 
   <style>
     body {
-      font-family: 'Inter', sans-serif;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: #f5f5f7;
+      color: #1d1d1f;
+      -webkit-font-smoothing: antialiased;
     }
-    .ig-gradient-bg {
-      background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);
+
+    /* Apple-style smooth scrollbar */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
     }
-    .ig-gradient-text {
-      background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
+    ::-webkit-scrollbar-track {
+      background: #f5f5f7;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #d2d2d7;
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #86868b;
+    }
+
+    /* Glassmorphism utility */
+    .apple-glass {
+      background: rgba(255, 255, 255, 0.82);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+    }
+    .apple-card {
+      background: #ffffff;
+      border: 1px solid rgba(0, 0, 0, 0.06);
+      box-shadow: 0 4px 24px -2px rgba(0, 0, 0, 0.04), 0 2px 8px -2px rgba(0, 0, 0, 0.02);
     }
   </style>
 </head>
-<body class="bg-[#fafafa] text-slate-900 min-h-screen flex flex-col">
+<body class="bg-apple-bg text-apple-text min-h-screen flex flex-col font-sans antialiased selection:bg-black selection:text-white">
 
-  <!-- Header / Navigation Bar -->
-  <header class="bg-white border-b border-slate-200 sticky top-0 z-40 px-4 sm:px-8 py-3.5 shadow-xs flex items-center justify-between">
-    <div class="flex items-center gap-3">
-      <div class="p-2.5 rounded-2xl ig-gradient-bg text-white shadow-md shadow-pink-500/20">
-        <i data-lucide="sparkles" class="w-5 h-5"></i>
+  <!-- Apple-Style Navigation Header -->
+  <header class="apple-glass sticky top-0 z-40 border-b border-black/[0.08] px-4 sm:px-8 py-3.5 flex items-center justify-between">
+    <div class="flex items-center gap-3.5">
+      <div class="w-9 h-9 rounded-2xl bg-black text-white flex items-center justify-center shadow-md">
+        <i data-lucide="message-square" class="w-4 h-4 stroke-[2.5]"></i>
       </div>
       <div>
-        <h1 class="text-lg font-black tracking-tight text-slate-900 flex items-center gap-2">
-          WhatsApp AI Executive Task Board
-        </h1>
-        <p class="text-xs text-slate-500 font-medium">Real-time Cloud Firestore & Gemini AI Task Sync</p>
+        <div class="flex items-center gap-2">
+          <h1 class="text-base sm:text-lg font-bold tracking-tight text-black">
+            WhatsApp API Engine
+          </h1>
+          <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-black/5 text-black border border-black/10">
+            PRO HUB
+          </span>
+        </div>
+        <p class="text-xs text-apple-secondary font-medium">Apple-Inspired Clean Outbound Messaging API</p>
       </div>
     </div>
 
+    <!-- Status Pill & Actions -->
     <div class="flex items-center gap-3">
-      <div id="connectionStatus" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-200">
-        <span class="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
-        <span id="statusText">Server Connected</span>
+      <div id="statusBadge" class="flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold bg-neutral-100 border border-neutral-200 text-neutral-700">
+        <span id="statusDot" class="w-2 h-2 rounded-full bg-neutral-400 animate-pulse"></span>
+        <span id="statusText">Connecting...</span>
       </div>
 
-      <button id="refreshBtn" onclick="fetchTasks()" class="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-extrabold transition-all flex items-center gap-1.5 border border-slate-200">
-        <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Refresh
+      <button onclick="restartSocket()" title="Restart Engine Connection" class="p-2 rounded-2xl bg-neutral-100 hover:bg-neutral-200 border border-neutral-200 text-neutral-700 transition-all cursor-pointer">
+        <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+      </button>
+
+      <button id="logoutBtn" onclick="logoutSession()" title="Logout WhatsApp Session" class="hidden p-2 rounded-2xl bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-600 transition-all cursor-pointer">
+        <i data-lucide="log-out" class="w-4 h-4"></i>
       </button>
     </div>
   </header>
 
-  <!-- Main Content Container -->
-  <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
+  <!-- Apple-Style Toast Notification -->
+  <div id="toast" class="hidden fixed bottom-6 right-6 z-50 px-5 py-3.5 rounded-2xl apple-glass border border-black/10 text-black shadow-2xl flex items-center gap-3 text-xs font-semibold transition-all">
+    <i id="toastIcon" data-lucide="info" class="w-4 h-4 text-black"></i>
+    <span id="toastText"></span>
+  </div>
 
-    <!-- Hero Statistics Card Row -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-      <!-- Stat 1: Total Tasks -->
-      <div class="bg-white border border-slate-200 p-5 rounded-2xl shadow-xs flex items-center justify-between">
+  <!-- Main Container -->
+  <main class="flex-1 max-w-5xl w-full mx-auto p-4 sm:p-6 lg:p-8 space-y-8">
+
+    <!-- STEP 1 VIEW: QR SCANNER OR EXISTING SESSION LOGIN -->
+    <div id="stepQrView" class="max-w-xl mx-auto space-y-6">
+      
+      <!-- MODE SWITCH TABS -->
+      <div class="bg-neutral-200/60 p-1 rounded-2xl flex items-center gap-1">
+        <button id="modeScanTab" onclick="switchAuthMode('scan')" class="flex-1 py-2.5 px-4 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 bg-white text-black shadow-sm cursor-pointer">
+          <i data-lucide="qr-code" class="w-4 h-4"></i> Scan QR Code
+        </button>
+        <button id="modeLoginTab" onclick="switchAuthMode('login')" class="flex-1 py-2.5 px-4 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-2 text-neutral-600 hover:text-black cursor-pointer">
+          <i data-lucide="key-round" class="w-4 h-4"></i> Login with Credentials
+        </button>
+      </div>
+
+      <!-- SCAN QR CARD -->
+      <div id="scanModeCard" class="apple-card rounded-3xl p-6 sm:p-8 text-center space-y-6">
         <div>
-          <span class="text-xs font-extrabold text-slate-400 uppercase tracking-wider block mb-1">Total Extracted Tasks</span>
-          <h3 id="statTotal" class="text-3xl font-black text-slate-900">0</h3>
+          <div class="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-neutral-100 border border-neutral-200 text-black mb-3">
+            <i data-lucide="qr-code" class="w-7 h-7"></i>
+          </div>
+          <h2 class="text-2xl font-extrabold text-black tracking-tight">Link Your WhatsApp</h2>
+          <p class="text-xs text-apple-secondary font-medium mt-1">
+            Scan the live QR code below using your phone to authorize WhatsApp sending API.
+          </p>
         </div>
-        <div class="w-10 h-10 rounded-2xl bg-purple-50 border border-purple-200 text-purple-600 flex items-center justify-center">
-          <i data-lucide="list-todo" class="w-5 h-5"></i>
+
+        <!-- Dynamic QR Box -->
+        <div class="flex flex-col items-center justify-center p-6 bg-neutral-50 border border-neutral-200 rounded-3xl min-h-[280px]">
+          <!-- Loading State -->
+          <div id="qrLoadingState" class="flex flex-col items-center gap-3">
+            <div class="w-10 h-10 rounded-full border-3 border-neutral-300 border-t-black animate-spin"></div>
+            <p class="text-xs font-semibold text-neutral-700">Generating live pairing QR...</p>
+            <p class="text-[11px] text-neutral-400 font-mono">Initializing Baileys WASocket engine</p>
+          </div>
+
+          <!-- QR Code Image -->
+          <div id="qrImageState" class="hidden flex flex-col items-center">
+            <div class="bg-white p-4 rounded-3xl shadow-xl border border-neutral-200 mb-4">
+              <img id="qrImage" src="" alt="WhatsApp Pairing QR Code" class="w-56 h-56 object-contain" />
+            </div>
+            <div class="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-semibold">
+              <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              Live QR Active — Scan with WhatsApp
+            </div>
+          </div>
+        </div>
+
+        <!-- How to scan guide -->
+        <div class="bg-neutral-50 rounded-2xl p-4 border border-neutral-200/80 text-left text-xs text-neutral-600 space-y-2">
+          <p class="font-bold text-black flex items-center gap-2 text-[11px] uppercase tracking-wider">
+            <i data-lucide="smartphone" class="w-4 h-4 text-black"></i> Setup Guide:
+          </p>
+          <ol class="list-decimal list-inside space-y-1 font-medium">
+            <li>Open <strong class="text-black">WhatsApp</strong> on your mobile phone</li>
+            <li>Tap <strong class="text-black">Settings</strong> &rarr; <strong class="text-black">Linked Devices</strong></li>
+            <li>Tap <strong class="text-black">Link a Device</strong> and point your camera at the QR code</li>
+          </ol>
+        </div>
+
+        <!-- Actions -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+          <button onclick="createNewSession()" class="py-3 bg-neutral-100 hover:bg-neutral-200 text-black font-semibold text-xs rounded-2xl transition-all flex items-center justify-center gap-2 cursor-pointer border border-neutral-200">
+            <i data-lucide="plus-circle" class="w-4 h-4"></i> Generate New Session ID
+          </button>
+          <button onclick="switchAuthMode('login')" class="py-3 bg-black hover:bg-neutral-800 text-white font-semibold text-xs rounded-2xl transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm">
+            <i data-lucide="key-round" class="w-4 h-4"></i> Login Existing Session
+          </button>
         </div>
       </div>
 
-      <!-- Stat 2: High Priority -->
-      <div class="bg-white border border-rose-200 p-5 rounded-2xl shadow-xs flex items-center justify-between bg-gradient-to-b from-rose-50/30 to-white">
-        <div>
-          <span class="text-xs font-extrabold text-rose-600 uppercase tracking-wider block mb-1">High Priority (Urgent)</span>
-          <h3 id="statHigh" class="text-3xl font-black text-rose-600">0</h3>
+      <!-- EXISTING SESSION LOGIN CARD -->
+      <div id="loginModeCard" class="hidden apple-card rounded-3xl p-6 sm:p-8 space-y-6">
+        <div class="text-center">
+          <div class="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-neutral-100 border border-neutral-200 text-black mb-3">
+            <i data-lucide="key-round" class="w-7 h-7"></i>
+          </div>
+          <h2 class="text-2xl font-extrabold text-black tracking-tight">Session Login</h2>
+          <p class="text-xs text-apple-secondary font-medium mt-1">
+            Enter your Session ID and Access Passcode to attach your active session.
+          </p>
         </div>
-        <div class="w-10 h-10 rounded-2xl bg-rose-50 border border-rose-200 text-rose-600 flex items-center justify-center">
-          <i data-lucide="shield-alert" class="w-5 h-5"></i>
-        </div>
+
+        <form onsubmit="handleExistingSessionLogin(event)" class="space-y-4">
+          <div>
+            <label class="block text-[11px] font-bold text-neutral-500 uppercase tracking-wider mb-1.5">
+              Session ID
+            </label>
+            <input
+              id="loginSessionId"
+              type="text"
+              placeholder="e.g. sess_a8f92b"
+              class="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-2xl text-xs font-mono text-black placeholder:text-neutral-400 focus:outline-none focus:border-black focus:bg-white transition-all"
+              required
+            />
+          </div>
+
+          <div>
+            <label class="block text-[11px] font-bold text-neutral-500 uppercase tracking-wider mb-1.5">
+              Access Passcode / PIN
+            </label>
+            <input
+              id="loginPasscode"
+              type="password"
+              placeholder="Passcode PIN"
+              class="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-2xl text-xs font-mono text-black placeholder:text-neutral-400 focus:outline-none focus:border-black focus:bg-white transition-all"
+              required
+            />
+          </div>
+
+          <div id="loginError" class="hidden p-3.5 bg-rose-50 border border-rose-200 rounded-2xl text-xs text-rose-700 font-medium flex items-center gap-2">
+            <i data-lucide="alert-circle" class="w-4 h-4 shrink-0"></i>
+            <span id="loginErrorText">Invalid Session ID or Passcode.</span>
+          </div>
+
+          <div class="flex items-center gap-3 pt-2">
+            <button
+              type="button"
+              onclick="switchAuthMode('scan')"
+              class="w-1/2 py-3 bg-neutral-100 hover:bg-neutral-200 text-black font-semibold text-xs rounded-2xl transition-all cursor-pointer border border-neutral-200"
+            >
+              Back to QR
+            </button>
+            <button
+              type="submit"
+              id="loginSubmitBtn"
+              class="w-1/2 py-3 bg-black hover:bg-neutral-800 text-white font-semibold text-xs rounded-2xl transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer"
+            >
+              Log In <i data-lucide="arrow-right" class="w-4 h-4"></i>
+            </button>
+          </div>
+        </form>
       </div>
 
-      <!-- Stat 3: Meetings & Schedules -->
-      <div class="bg-white border border-slate-200 p-5 rounded-2xl shadow-xs flex items-center justify-between">
-        <div>
-          <span class="text-xs font-extrabold text-slate-400 uppercase tracking-wider block mb-1">Meetings & Schedules</span>
-          <h3 id="statMeetings" class="text-3xl font-black text-purple-700">0</h3>
-        </div>
-        <div class="w-10 h-10 rounded-2xl bg-purple-50 border border-purple-200 text-purple-600 flex items-center justify-center">
-          <i data-lucide="calendar" class="w-5 h-5"></i>
-        </div>
-      </div>
-
-      <!-- Stat 4: Completed -->
-      <div class="bg-white border border-slate-200 p-5 rounded-2xl shadow-xs flex items-center justify-between">
-        <div>
-          <span class="text-xs font-extrabold text-slate-400 uppercase tracking-wider block mb-1">Finished Deliverables</span>
-          <h3 id="statCompleted" class="text-3xl font-black text-emerald-600">0</h3>
-        </div>
-        <div class="w-10 h-10 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-600 flex items-center justify-center">
-          <i data-lucide="check-circle-2" class="w-5 h-5"></i>
-        </div>
-      </div>
     </div>
 
-    <!-- Controls & Filter Toolbar -->
-    <div class="bg-white border border-slate-200 rounded-3xl p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
-      <div class="flex items-center gap-2">
-        <h2 class="text-lg font-black text-slate-900">Extracted Action Items</h2>
-        <span id="taskCountBadge" class="bg-purple-50 text-purple-700 px-2.5 py-0.5 rounded-full text-xs font-extrabold border border-purple-200">0 Tasks</span>
+    <!-- STEP 2 VIEW: LINKED SUCCESS + CREDENTIALS + API DISPATCHER -->
+    <div id="stepConnectedView" class="hidden space-y-8">
+
+      <!-- SUCCESS BANNER WITH CHECKMARK -->
+      <div class="apple-card rounded-3xl p-6 flex flex-col sm:flex-row items-center gap-5 text-center sm:text-left bg-gradient-to-r from-emerald-50/80 to-white border border-emerald-200/80">
+        <div class="w-14 h-14 rounded-2xl bg-emerald-500 text-white flex items-center justify-center shrink-0 shadow-lg shadow-emerald-500/20">
+          <i data-lucide="check" class="w-8 h-8 stroke-[3]"></i>
+        </div>
+        <div class="space-y-1">
+          <div class="flex flex-wrap items-center justify-center sm:justify-start gap-2">
+            <h2 class="text-xl sm:text-2xl font-extrabold text-black tracking-tight">
+              WhatsApp Connected & Verified!
+            </h2>
+            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-emerald-100 text-emerald-800 border border-emerald-300/60">
+              ACTIVE
+            </span>
+          </div>
+          <p class="text-xs sm:text-sm font-medium text-emerald-900">
+            Your WhatsApp device is linked to our server. You can now send API messages.
+          </p>
+          <p id="linkedAccountText" class="text-xs text-neutral-500 font-mono pt-1">
+            Linked Account: <span id="linkedPhone" class="text-black font-semibold">+...</span>
+          </p>
+        </div>
       </div>
 
-      <div class="flex flex-wrap items-center gap-2">
-        <!-- Search Input -->
-        <div class="relative min-w-[220px]">
-          <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2"></i>
-          <input
-            type="text"
-            id="searchInput"
-            placeholder="Search task, contact, or verdict..."
-            oninput="renderTasks()"
-            class="w-full bg-slate-50 border border-slate-200 text-slate-900 text-xs pl-9 pr-3 py-2.5 rounded-xl focus:outline-none focus:border-[#0095f6] font-medium"
-          />
+      <!-- OFFICIAL LEGAL TERMS & OPERATING AUTHORIZATION DISCLAIMER CARD -->
+      <div class="apple-card rounded-3xl p-6 bg-amber-50/50 border border-amber-200/80 space-y-4">
+        <div class="flex items-start gap-3.5">
+          <div class="p-2.5 rounded-2xl bg-amber-500/10 text-amber-800 border border-amber-200 shrink-0">
+            <i data-lucide="shield-alert" class="w-5 h-5"></i>
+          </div>
+          <div class="space-y-1">
+            <h3 class="font-extrabold text-sm text-amber-950 uppercase tracking-tight flex items-center gap-2">
+              API Connection Legal Notice & Terms of Service
+            </h3>
+            <p class="text-xs text-amber-900 font-medium leading-relaxed">
+              By linking your WhatsApp account to this server, you explicitly acknowledge and agree to the following binding operating terms:
+            </p>
+          </div>
         </div>
 
-        <!-- Priority Filter -->
-        <select id="priorityFilter" onchange="renderTasks()" class="bg-slate-50 border border-slate-200 text-slate-900 text-xs px-3 py-2.5 rounded-xl focus:outline-none focus:border-[#0095f6] font-semibold">
-          <option value="ALL">All Priorities</option>
-          <option value="HIGH">🔥 HIGH Priority Only</option>
-          <option value="MEDIUM">⚡ MEDIUM Priority</option>
-          <option value="LOW">💬 LOW Priority</option>
-        </select>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs text-amber-950">
+          <div class="p-3.5 bg-white/80 border border-amber-200/60 rounded-2xl space-y-1">
+            <div class="font-bold flex items-center gap-1.5 text-amber-900">
+              <i data-lucide="send" class="w-3.5 h-3.5 text-amber-600"></i> Outbound Message Dispatch Notice
+            </div>
+            <p class="text-[11px] text-neutral-600 leading-relaxed font-normal">
+              Your connected WhatsApp account is bound to this API server. Any authorized API client with your Session ID & PIN can send outbound WhatsApp messages to any valid phone number through your account.
+            </p>
+          </div>
 
-        <!-- Category Filter -->
-        <select id="categoryFilter" onchange="renderTasks()" class="bg-slate-50 border border-slate-200 text-slate-900 text-xs px-3 py-2.5 rounded-xl focus:outline-none focus:border-[#0095f6] font-semibold">
-          <option value="ALL">All Categories</option>
-          <option value="Meeting">📅 Meetings & Interviews</option>
-          <option value="Urgent">🚨 Urgent</option>
-          <option value="Work">💼 Work / Deliverables</option>
-          <option value="Payment">💳 Payments</option>
-        </select>
-      </div>
-    </div>
+          <div class="p-3.5 bg-white/80 border border-amber-200/60 rounded-2xl space-y-1">
+            <div class="font-bold flex items-center gap-1.5 text-amber-900">
+              <i data-lucide="user-check" class="w-3.5 h-3.5 text-amber-600"></i> User Ownership & Liability
+            </div>
+            <p class="text-[11px] text-neutral-600 leading-relaxed font-normal">
+              You warrant that you are the legal owner or authorized user of the linked phone number and accept 100% sole legal responsibility for all messages, media, and data sent via this API.
+            </p>
+          </div>
 
-    <!-- Tasks Grid Container -->
-    <div id="tasksGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-      <!-- Loading Skeleton State -->
-      <div class="col-span-full py-16 text-center text-slate-400">
-        <i data-lucide="loader-2" class="w-8 h-8 animate-spin mx-auto text-[#0095f6] mb-3"></i>
-        <p class="font-extrabold text-sm text-slate-700">Loading AI Tasks from Cloud Firestore & Server...</p>
+          <div class="p-3.5 bg-white/80 border border-amber-200/60 rounded-2xl space-y-1">
+            <div class="font-bold flex items-center gap-1.5 text-amber-900">
+              <i data-lucide="slash" class="w-3.5 h-3.5 text-amber-600"></i> Anti-Spam Compliance
+            </div>
+            <p class="text-[11px] text-neutral-600 leading-relaxed font-normal">
+              Unsolicited messaging, bulk spam, harassment, or illegal message broadcasting is strictly prohibited. You agree to comply with WhatsApp Terms of Service and telecommunication laws.
+            </p>
+          </div>
+
+          <div class="p-3.5 bg-white/80 border border-amber-200/60 rounded-2xl space-y-1">
+            <div class="font-bold flex items-center gap-1.5 text-amber-900">
+              <i data-lucide="shield-off" class="w-3.5 h-3.5 text-amber-600"></i> Limitation of Liability
+            </div>
+            <p class="text-[11px] text-neutral-600 leading-relaxed font-normal">
+              The server developers, software maintainers, and platform hosts accept ZERO liability for account bans, suspensions, rate limits, or damages arising from API usage or misuse.
+            </p>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2 pt-1 border-t border-amber-200/60 text-[11px] text-amber-900 font-semibold">
+          <i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-600"></i>
+          <span>Device Connected & Terms Accepted — All message dispatches are logged under your Session ID.</span>
+        </div>
       </div>
+
+
+      <!-- GRID LAYOUT: CREDENTIALS & SENDER FORM -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+
+        <!-- Left Column: Credentials & Sender Form -->
+        <div class="lg:col-span-6 space-y-6">
+
+          <!-- API CREDENTIALS CARD -->
+          <div class="apple-card rounded-3xl p-6 space-y-4">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2.5">
+                <div class="p-2 rounded-2xl bg-neutral-100 text-black border border-neutral-200">
+                  <i data-lucide="key-round" class="w-5 h-5"></i>
+                </div>
+                <div>
+                  <h3 class="font-bold text-base text-black tracking-tight">API Credentials</h3>
+                  <p class="text-xs text-apple-secondary">Synced with Cloud Firestore DB</p>
+                </div>
+              </div>
+
+              <button onclick="toggleEditCredentialsModal()" class="px-3 py-1.5 bg-neutral-100 hover:bg-neutral-200 text-black border border-neutral-200 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer">
+                <i data-lucide="edit-3" class="w-3.5 h-3.5"></i> Edit ID & PIN
+              </button>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <!-- Session ID -->
+              <div class="p-4 bg-neutral-50 border border-neutral-200 rounded-2xl font-mono text-xs space-y-1">
+                <span class="text-[10px] text-neutral-500 font-bold uppercase tracking-wider block font-sans">Session ID</span>
+                <div class="flex items-center justify-between text-black pt-1">
+                  <span id="displaySessionId" class="font-bold truncate">...</span>
+                  <button onclick="copyText(document.getElementById('displaySessionId').innerText, 'Session ID')" class="hover:text-black text-neutral-400 cursor-pointer ml-1">
+                    <i data-lucide="copy" class="w-4 h-4"></i>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Passcode -->
+              <div class="p-4 bg-neutral-50 border border-neutral-200 rounded-2xl font-mono text-xs space-y-1">
+                <span class="text-[10px] text-neutral-500 font-bold uppercase tracking-wider block font-sans">Access Passcode</span>
+                <div class="flex items-center justify-between text-black pt-1">
+                  <span id="displayPasscode" class="font-bold truncate">...</span>
+                  <button onclick="copyText(document.getElementById('displayPasscode').innerText, 'Passcode')" class="hover:text-black text-neutral-400 cursor-pointer ml-1">
+                    <i data-lucide="copy" class="w-4 h-4"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- INLINE EDIT FORM -->
+            <div id="editCredentialsForm" class="hidden p-4 bg-neutral-50 border border-neutral-200 rounded-2xl space-y-3">
+              <div class="flex items-center justify-between">
+                <h4 class="text-xs font-bold text-black flex items-center gap-1.5">
+                  <i data-lucide="shield-check" class="w-4 h-4"></i> Customize Credentials
+                </h4>
+                <button onclick="toggleEditCredentialsModal()" class="text-neutral-400 hover:text-black text-xs font-bold cursor-pointer">&times;</button>
+              </div>
+              <p class="text-[11px] text-neutral-500">Updates will rename your Session ID and sync immediately to Cloud Firestore.</p>
+              
+              <div class="space-y-2.5">
+                <div>
+                  <label class="block text-[10px] font-bold text-neutral-500 uppercase mb-1">Session ID</label>
+                  <input
+                    id="newSessionIdInput"
+                    type="text"
+                    placeholder="Custom Session ID (e.g. my_custom_api)"
+                    class="w-full px-3.5 py-2.5 bg-white border border-neutral-200 rounded-xl text-xs font-mono text-black focus:outline-none focus:border-black"
+                  />
+                </div>
+                <div>
+                  <label class="block text-[10px] font-bold text-neutral-500 uppercase mb-1">Access Passcode PIN</label>
+                  <input
+                    id="newPasscodeInput"
+                    type="text"
+                    placeholder="New Passcode (min 4 chars)"
+                    class="w-full px-3.5 py-2.5 bg-white border border-neutral-200 rounded-xl text-xs font-mono text-black focus:outline-none focus:border-black"
+                  />
+                </div>
+                <button
+                  onclick="saveNewCredentials()"
+                  class="w-full py-2.5 bg-black text-white hover:bg-neutral-800 font-semibold text-xs rounded-xl shadow-sm cursor-pointer mt-2 flex items-center justify-center gap-2"
+                >
+                  <i data-lucide="save" class="w-4 h-4"></i> Save & Sync to Cloud Firestore
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- SEND MESSAGE TEST FORM -->
+          <div class="apple-card rounded-3xl p-6 space-y-4">
+            <div class="flex items-center gap-2.5">
+              <div class="p-2 rounded-2xl bg-neutral-100 text-black border border-neutral-200">
+                <i data-lucide="send" class="w-5 h-5"></i>
+              </div>
+              <div>
+                <h3 class="font-bold text-base text-black tracking-tight">Test Message Dispatcher</h3>
+                <p class="text-xs text-apple-secondary">Send WhatsApp payload via backend API endpoint</p>
+              </div>
+            </div>
+
+            <form id="sendMessageForm" onsubmit="handleSendSubmit(event)" class="space-y-4">
+              <div>
+                <label class="block text-[11px] font-bold text-neutral-500 uppercase tracking-wider mb-1.5">
+                  Recipient Phone Number
+                </label>
+                <div class="relative">
+                  <input
+                    id="targetPhone"
+                    type="text"
+                    placeholder="e.g. 919876543210 (Country code + phone digits)"
+                    class="w-full pl-10 pr-4 py-3 bg-neutral-50 border border-neutral-200 rounded-2xl text-xs font-mono text-black placeholder:text-neutral-400 focus:outline-none focus:border-black focus:bg-white transition-all"
+                    required
+                  />
+                  <i data-lucide="smartphone" class="w-4 h-4 text-neutral-400 absolute left-3.5 top-3.5"></i>
+                </div>
+                <p class="text-[11px] text-neutral-500 mt-1">Country code + number without + sign (e.g. 919876543210)</p>
+              </div>
+
+              <div>
+                <label class="block text-[11px] font-bold text-neutral-500 uppercase tracking-wider mb-1.5">
+                  Message Text Payload
+                </label>
+                <textarea
+                  id="messageContent"
+                  rows="3"
+                  placeholder="Type message text payload here..."
+                  class="w-full p-3.5 bg-neutral-50 border border-neutral-200 rounded-2xl text-xs text-black placeholder:text-neutral-400 focus:outline-none focus:border-black focus:bg-white resize-none transition-all"
+                  required
+                ></textarea>
+              </div>
+
+              <button
+                type="submit"
+                id="sendBtn"
+                class="w-full py-3.5 px-6 bg-black hover:bg-neutral-800 text-white font-semibold text-xs uppercase tracking-wider rounded-2xl shadow-sm transition-all flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <i data-lucide="send" class="w-4 h-4"></i> Dispatch WhatsApp Message
+              </button>
+            </form>
+
+            <!-- API Response Display -->
+            <div id="responseContainer" class="hidden p-4 bg-neutral-900 border border-neutral-800 rounded-2xl text-xs font-mono text-white">
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-[10px] font-bold uppercase tracking-wider text-neutral-400">Response Log:</span>
+                <span id="responseStatusBadge" class="px-2.5 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">200 OK</span>
+              </div>
+              <pre id="responseText" class="text-neutral-200 overflow-x-auto whitespace-pre-wrap text-[11px] leading-relaxed"></pre>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Right Column: Code Snippets (macOS Terminal Style) -->
+        <div class="lg:col-span-6 space-y-6">
+          <div class="apple-card rounded-3xl p-6 space-y-4">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <i data-lucide="code" class="w-5 h-5 text-black"></i>
+                <h3 class="font-bold text-base text-black tracking-tight">API Integration Snippets</h3>
+              </div>
+
+              <!-- Tab Switcher -->
+              <div class="flex bg-neutral-100 border border-neutral-200 p-1 rounded-xl gap-1 text-xs font-mono">
+                <button onclick="switchTab('curl')" id="tabCurl" class="px-3 py-1 rounded-lg bg-white text-black font-bold shadow-xs cursor-pointer">cURL</button>
+                <button onclick="switchTab('js')" id="tabJs" class="px-3 py-1 rounded-lg text-neutral-500 hover:text-black font-bold cursor-pointer">JS</button>
+                <button onclick="switchTab('python')" id="tabPython" class="px-3 py-1 rounded-lg text-neutral-500 hover:text-black font-bold cursor-pointer">Python</button>
+              </div>
+            </div>
+
+            <div class="p-3 bg-neutral-50 border border-neutral-200 rounded-2xl flex items-center justify-between font-mono text-xs">
+              <div class="flex items-center gap-2">
+                <span class="px-2 py-0.5 bg-black text-white font-bold rounded text-[10px] uppercase">POST</span>
+                <span class="text-neutral-700 font-semibold">/api/messages/send</span>
+              </div>
+            </div>
+
+            <!-- macOS Code Window -->
+            <div class="bg-[#1c1c1e] text-neutral-100 rounded-2xl p-4 border border-neutral-800 relative shadow-inner">
+              <!-- Window dots -->
+              <div class="flex items-center gap-1.5 mb-3">
+                <span class="w-2.5 h-2.5 rounded-full bg-[#ff5f56]"></span>
+                <span class="w-2.5 h-2.5 rounded-full bg-[#ffbd2e]"></span>
+                <span class="w-2.5 h-2.5 rounded-full bg-[#27c93f]"></span>
+              </div>
+
+              <button onclick="copySnippet()" class="absolute top-3 right-3 p-1.5 bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 rounded-lg text-neutral-300 hover:text-white cursor-pointer transition-all" title="Copy Code Snippet">
+                <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+              </button>
+
+              <pre id="codeSnippet" class="text-xs font-mono text-emerald-400 overflow-x-auto whitespace-pre-wrap leading-relaxed pr-8"></pre>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
     </div>
 
   </main>
 
-  <!-- Page Footer -->
-  <footer class="bg-white border-t border-slate-200 py-4 px-6 text-center text-xs text-slate-500 font-medium">
-    WhatsApp AI Task Management Dashboard • Powered by Google Gemini AI & Cloud Firestore
-  </footer>
+  <script>
+    let currentSessionId = localStorage.getItem('WHATSAPP_SESSION_ID') || '';
+    if (currentSessionId === 'default') currentSessionId = '';
+    let currentPasscode = localStorage.getItem('WHATSAPP_PASSCODE') || '';
+    let currentStatus = 'INITIALIZING';
+    let activeTab = 'curl';
 
-  <!-- Firebase Web SDK Integration Script -->
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-    import { getFirestore, collection, getDocs, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+    document.getElementById('loginSessionId').value = currentSessionId;
+    document.getElementById('loginPasscode').value = currentPasscode;
 
-    const firebaseConfig = {
-      apiKey: "AIzaSyAvMbz8UrtU1fjx3uBndwhBziFaCVtlBG4",
-      authDomain: "findyourself-a7369.firebaseapp.com",
-      projectId: "findyourself-a7369",
-      storageBucket: "findyourself-a7369.firebasestorage.app",
-      messagingSenderId: "104779229944",
-      appId: "1:104779229944:web:e01808ba5af3ddd7aba90d",
-      measurementId: "G-B7QHM0FEQZ"
-    };
+    function switchAuthMode(mode) {
+      const scanCard = document.getElementById('scanModeCard');
+      const loginCard = document.getElementById('loginModeCard');
+      const scanTab = document.getElementById('modeScanTab');
+      const loginTab = document.getElementById('modeLoginTab');
 
-    let allTasks = [];
-
-    // Initialize Firebase
-    try {
-      const app = initializeApp(firebaseConfig);
-      const db = getFirestore(app);
-      
-      // Listen to real-time Cloud Firestore updates
-      const tasksRef = collection(db, 'tasks');
-      onSnapshot(tasksRef, (snapshot) => {
-        const firestoreTasks = [];
-        snapshot.forEach(doc => firestoreTasks.push(doc.data()));
-        if (firestoreTasks.length > 0) {
-          allTasks = firestoreTasks;
-          renderTasks();
-          updateStats();
-        }
-      });
-    } catch (e) {
-      console.warn('Firebase client setup error:', e);
-    }
-
-    // Fetch tasks from Express Server API
-    async function fetchTasks() {
-      try {
-        const res = await fetch('/api/tasks');
-        if (res.ok) {
-          const data = await res.json();
-          if (data.tasks) {
-            allTasks = data.tasks;
-            renderTasks();
-            updateStats();
-          }
-        }
-      } catch (err) {
-        console.warn('Could not fetch from local Express API, using Firestore:', err);
+      if (mode === 'scan') {
+        scanCard.classList.remove('hidden');
+        loginCard.classList.add('hidden');
+        scanTab.className = 'flex-1 py-2.5 px-4 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 bg-white text-black shadow-sm cursor-pointer';
+        loginTab.className = 'flex-1 py-2.5 px-4 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-2 text-neutral-600 hover:text-black cursor-pointer';
+      } else {
+        scanCard.classList.add('hidden');
+        loginCard.classList.remove('hidden');
+        loginTab.className = 'flex-1 py-2.5 px-4 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 bg-white text-black shadow-sm cursor-pointer';
+        scanTab.className = 'flex-1 py-2.5 px-4 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-2 text-neutral-600 hover:text-black cursor-pointer';
       }
     }
 
-    window.fetchTasks = fetchTasks;
-
-    // Connect to Server SSE Live Events
-    function initSSE() {
-      try {
-        const evtSource = new EventSource('/api/events');
-        evtSource.onmessage = (event) => {
-          const data = JSON.parse(event.data);
-          if (data.eventType === 'NEW_TASK' && data.task) {
-            allTasks = [data.task, ...allTasks.filter(t => t.id !== data.task.id)];
-            renderTasks();
-            updateStats();
-          } else if (data.eventType === 'BULK_ANALYSIS_COMPLETE') {
-            fetchTasks();
+    function createNewSession() {
+      fetch('/api/auth/new-session', { method: 'POST' })
+        .then(res => res.json())
+        .then(data => {
+          if (data && data.sessionId) {
+            currentSessionId = data.sessionId;
+            currentPasscode = data.passcode || '';
+            localStorage.setItem('WHATSAPP_SESSION_ID', currentSessionId);
+            localStorage.setItem('WHATSAPP_PASSCODE', currentPasscode);
+            showToast('Created new session: ' + currentSessionId, 'success');
+            fetchStatus();
           }
-        };
-      } catch (e) {
-        console.warn('SSE EventSource not supported or server offline:', e);
+        })
+        .catch(err => console.error('Error creating session:', err));
+    }
+
+    function handleExistingSessionLogin(e) {
+      e.preventDefault();
+      const targetId = document.getElementById('loginSessionId').value.trim();
+      const targetPass = document.getElementById('loginPasscode').value.trim();
+      const errBox = document.getElementById('loginError');
+      const errText = document.getElementById('loginErrorText');
+      const submitBtn = document.getElementById('loginSubmitBtn');
+
+      errBox.classList.add('hidden');
+      submitBtn.disabled = true;
+
+      fetch(`/api/status`, {
+        headers: {
+          'x-session-id': targetId,
+          'x-session-passcode': targetPass
+        }
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data && !data.isLocked && data.status === 'READY') {
+          currentSessionId = targetId;
+          currentPasscode = targetPass;
+          localStorage.setItem('WHATSAPP_SESSION_ID', targetId);
+          localStorage.setItem('WHATSAPP_PASSCODE', targetPass);
+          showToast('Session logged in successfully!', 'success');
+          updateUIState(data);
+        } else if (data && data.isLocked) {
+          errBox.classList.remove('hidden');
+          errText.innerText = 'Incorrect Access PIN for session "' + targetId + '". Access denied.';
+        } else {
+          errBox.classList.remove('hidden');
+          errText.innerText = 'Session status is "' + (data.status || 'OFFLINE') + '". Scan QR code to connect.';
+        }
+      })
+      .catch(err => {
+        errBox.classList.remove('hidden');
+        errText.innerText = 'Login error: ' + err.message;
+      })
+      .finally(() => {
+        submitBtn.disabled = false;
+      });
+    }
+
+    function toggleEditCredentialsModal() {
+      const form = document.getElementById('editCredentialsForm');
+      form.classList.toggle('hidden');
+      if (!form.classList.contains('hidden')) {
+        document.getElementById('newSessionIdInput').value = currentSessionId;
+        document.getElementById('newPasscodeInput').value = currentPasscode;
+        document.getElementById('newSessionIdInput').focus();
       }
     }
 
-    // Render Tasks Cards in Grid
-    function renderTasks() {
-      const grid = document.getElementById('tasksGrid');
-      const search = document.getElementById('searchInput').value.toLowerCase();
-      const priority = document.getElementById('priorityFilter').value;
-      const category = document.getElementById('categoryFilter').value;
+    function saveNewCredentials() {
+      const newSessionId = document.getElementById('newSessionIdInput').value.trim();
+      const newPass = document.getElementById('newPasscodeInput').value.trim();
 
-      const filtered = allTasks.filter(t => {
-        const title = (t.title || '').toLowerCase();
-        const chatName = (t.chatName || '').toLowerCase();
-        const verdict = (t.verdict || '').toLowerCase();
-        const matchesSearch = title.includes(search) || chatName.includes(search) || verdict.includes(search);
-        
-        if (!matchesSearch) return false;
-        if (priority !== 'ALL' && t.priority !== priority) return false;
-        if (category !== 'ALL' && t.category !== category) return false;
-        return true;
-      });
-
-      document.getElementById('taskCountBadge').innerText = `${filtered.length} Tasks`;
-
-      if (filtered.length === 0) {
-        grid.innerHTML = `
-          <div class="col-span-full py-16 text-center text-slate-400">
-            <i data-lucide="folder-kanban" class="w-10 h-10 mx-auto text-slate-300 mb-2"></i>
-            <p class="font-black text-slate-700 text-sm">No tasks matching criteria</p>
-            <p class="text-xs text-slate-400 mt-1">Send a WhatsApp message or clear search filters to view tasks.</p>
-          </div>
-        `;
-        lucide.createIcons();
+      if (!newSessionId || newSessionId.length < 3) {
+        showToast('Session ID must be at least 3 characters long.', 'error');
+        return;
+      }
+      if (!newPass || newPass.length < 4) {
+        showToast('Passcode must be at least 4 characters long.', 'error');
         return;
       }
 
-      grid.innerHTML = filtered.map(t => {
-        const isHigh = t.priority === 'HIGH';
-        const isMed = t.priority === 'MEDIUM';
-        const priorityBadge = isHigh
-          ? `<span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-rose-50 text-rose-600 border border-rose-200 inline-flex items-center gap-1"><i data-lucide="shield-alert" class="w-3 h-3 text-rose-500"></i> HIGH</span>`
-          : isMed
-          ? `<span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-amber-50 text-amber-700 border border-amber-200 inline-flex items-center gap-1"><i data-lucide="zap" class="w-3 h-3 text-amber-500"></i> MEDIUM</span>`
-          : `<span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-sky-50 text-sky-600 border border-sky-200 inline-flex items-center gap-1"><i data-lucide="clock" class="w-3 h-3 text-sky-500"></i> LOW</span>`;
-
-        // URL Action Button Detection
-        const fullText = `${t.title || ''} ${t.originalMessage || ''} ${t.verdict || ''}`;
-        const urlMatch = fullText.match(/(https?:\/\/[^\s]+)/gi);
-        let linkBtnHtml = '';
-
-        if (urlMatch && urlMatch.length > 0) {
-          const url = urlMatch[0].replace(/[.,)!]*$/, '');
-          const lowerUrl = url.toLowerCase();
-          const isMeeting = lowerUrl.includes('meet.google.com') || lowerUrl.includes('zoom.us') || lowerUrl.includes('teams.microsoft');
-          const isPayment = lowerUrl.includes('pay') || lowerUrl.includes('invoice') || lowerUrl.includes('paypal');
-
-          if (isMeeting) {
-            linkBtnHtml = `
-              <a href="${url}" target="_blank" class="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-md transition-all">
-                <i data-lucide="video" class="w-3.5 h-3.5"></i> 📹 Join Meeting <i data-lucide="external-link" class="w-3 h-3 opacity-70"></i>
-              </a>
-            `;
-          } else if (isPayment) {
-            linkBtnHtml = `
-              <a href="${url}" target="_blank" class="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#0095f6] hover:bg-[#1877f2] text-white font-extrabold text-xs rounded-xl shadow-md transition-all">
-                <i data-lucide="credit-card" class="w-3.5 h-3.5"></i> 💳 Pay Now <i data-lucide="external-link" class="w-3 h-3 opacity-70"></i>
-              </a>
-            `;
-          } else {
-            linkBtnHtml = `
-              <a href="${url}" target="_blank" class="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white font-extrabold text-xs rounded-xl shadow-md transition-all">
-                <i data-lucide="external-link" class="w-3.5 h-3.5"></i> 🔗 Open Link
-              </a>
-            `;
-          }
+      const url = `/api/auth/set-credentials?sessionId=${encodeURIComponent(currentSessionId)}&passcode=${encodeURIComponent(currentPasscode)}`;
+      fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-session-id': currentSessionId,
+          'x-session-passcode': currentPasscode
+        },
+        body: JSON.stringify({ newSessionId, newPasscode: newPass })
+      })
+      .then(async res => {
+        const text = await res.text();
+        let data;
+        try {
+          data = JSON.parse(text);
+        } catch(e) {
+          throw new Error('Server returned HTML or non-JSON. Please restart node server.');
         }
+        if (res.ok && data && data.success) {
+          currentSessionId = data.sessionId || newSessionId;
+          currentPasscode = data.passcode || newPass;
+          localStorage.setItem('WHATSAPP_SESSION_ID', currentSessionId);
+          localStorage.setItem('WHATSAPP_PASSCODE', currentPasscode);
 
-        return `
-          <div class="bg-white border border-slate-200 hover:border-slate-300 rounded-3xl p-5 shadow-xs hover:shadow-md transition-all flex flex-col justify-between space-y-4">
-            <div>
-              <div class="flex items-center justify-between mb-3">
-                ${priorityBadge}
-                <span class="bg-purple-50 text-purple-700 text-[10px] px-2.5 py-0.5 rounded-full font-extrabold border border-purple-200">
-                  ${t.category || 'General'}
-                </span>
-              </div>
-
-              <h3 class="font-black text-sm text-slate-900 mb-2 leading-snug">
-                ${t.title}
-              </h3>
-
-              ${t.verdict ? `
-                <div class="p-3 rounded-2xl bg-purple-50 border border-purple-200 text-xs text-purple-900 font-semibold leading-relaxed mb-2">
-                  <span class="font-extrabold text-purple-700 flex items-center gap-1 mb-0.5">
-                    <i data-lucide="sparkles" class="w-3.5 h-3.5 text-pink-500"></i> AI Verdict:
-                  </span>
-                  ${t.verdict}
-                </div>
-              ` : ''}
-
-              ${t.originalMessage && t.originalMessage !== t.title ? `
-                <p class="text-xs text-slate-500 italic bg-slate-50 p-2.5 rounded-xl border border-slate-100 line-clamp-2">
-                  "${t.originalMessage}"
-                </p>
-              ` : ''}
-
-              ${linkBtnHtml}
-            </div>
-
-            <div class="pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-              <div class="flex items-center gap-1.5 font-bold text-slate-700 min-w-0">
-                <i data-lucide="user" class="w-3.5 h-3.5 text-[#0095f6] shrink-0"></i>
-                <span class="truncate">${t.chatName || 'WhatsApp Contact'}</span>
-              </div>
-
-              ${t.dueDate ? `
-                <span class="font-mono text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full text-[10px] font-bold">
-                  ${t.dueDate}
-                </span>
-              ` : ''}
-            </div>
-          </div>
-        `;
-      }).join('');
-
-      lucide.createIcons();
+          document.getElementById('displaySessionId').innerText = currentSessionId;
+          document.getElementById('displayPasscode').innerText = currentPasscode;
+          toggleEditCredentialsModal();
+          showToast('Session ID & Passcode updated & synced to Cloud Firestore!', 'success');
+          updateSnippets();
+        } else {
+          showToast((data && (data.message || data.error)) || 'Failed to update credentials', 'error');
+        }
+      })
+      .catch(err => showToast('Update error: ' + err.message, 'error'));
     }
 
-    window.renderTasks = renderTasks;
+    function fetchStatus() {
+      const headers = {};
+      if (currentSessionId && currentSessionId !== 'default') headers['x-session-id'] = currentSessionId;
+      if (currentPasscode) headers['x-session-passcode'] = currentPasscode;
 
-    // Update Statistics
-    function updateStats() {
-      document.getElementById('statTotal').innerText = allTasks.length;
-      document.getElementById('statHigh').innerText = allTasks.filter(t => t.priority === 'HIGH').length;
-      document.getElementById('statMeetings').innerText = allTasks.filter(t => t.category === 'Meeting').length;
-      document.getElementById('statCompleted').innerText = allTasks.filter(t => t.status === 'COMPLETED').length;
+      fetch(`/api/status`, { headers })
+      .then(res => res.json())
+      .then(data => updateUIState(data))
+      .catch(err => console.error('Status error:', err));
     }
 
-    // Initial Load
-    fetchTasks();
-    initSSE();
+    function updateUIState(data) {
+      if (!data) return;
+      currentStatus = data.status || 'INITIALIZING';
+
+      const stepQrView = document.getElementById('stepQrView');
+      const stepConnectedView = document.getElementById('stepConnectedView');
+
+      const statusBadge = document.getElementById('statusBadge');
+      const statusText = document.getElementById('statusText');
+      const statusDot = document.getElementById('statusDot');
+      const logoutBtn = document.getElementById('logoutBtn');
+
+      const qrLoadingState = document.getElementById('qrLoadingState');
+      const qrImageState = document.getElementById('qrImageState');
+      const qrImage = document.getElementById('qrImage');
+
+      if (data.sessionId && data.sessionId !== 'default') {
+        currentSessionId = data.sessionId;
+        localStorage.setItem('WHATSAPP_SESSION_ID', data.sessionId);
+      }
+      if (data.passcode) {
+        currentPasscode = data.passcode;
+        localStorage.setItem('WHATSAPP_PASSCODE', data.passcode);
+      }
+
+      if (currentStatus === 'READY' && !data.isLocked) {
+        // STEP 2: REVEAL LINKED SUCCESS BANNER + CREDENTIALS + SENDER FORM
+        stepQrView.classList.add('hidden');
+        stepConnectedView.classList.remove('hidden');
+        logoutBtn.classList.remove('hidden');
+
+        statusBadge.className = 'flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200';
+        statusDot.className = 'w-2 h-2 rounded-full bg-emerald-500 animate-pulse';
+        statusText.innerText = 'Connected';
+
+        document.getElementById('displaySessionId').innerText = currentSessionId;
+        document.getElementById('displayPasscode').innerText = currentPasscode || 'Not set';
+
+        if (data.userInfo && data.userInfo.phone) {
+          document.getElementById('linkedPhone').innerText = '+' + data.userInfo.phone + (data.userInfo.pushname ? ' (' + data.userInfo.pushname + ')' : '');
+        }
+      } else {
+        // STEP 1: SHOW QR CODE SCANNER / LOGIN CARD
+        stepConnectedView.classList.add('hidden');
+        stepQrView.classList.remove('hidden');
+        logoutBtn.classList.add('hidden');
+
+        if (currentStatus === 'QR_READY' && data.qrCodeDataUrl) {
+          statusBadge.className = 'flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200';
+          statusDot.className = 'w-2 h-2 rounded-full bg-amber-500 animate-ping';
+          statusText.innerText = 'Scan QR Code';
+
+          qrLoadingState.classList.add('hidden');
+          qrImageState.classList.remove('hidden');
+          qrImage.src = data.qrCodeDataUrl;
+        } else {
+          statusBadge.className = 'flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-neutral-100 text-neutral-600 border border-neutral-200';
+          statusDot.className = 'w-2 h-2 rounded-full bg-neutral-400 animate-spin';
+          statusText.innerText = currentStatus;
+
+          qrImageState.classList.add('hidden');
+          qrLoadingState.classList.remove('hidden');
+        }
+      }
+
+      updateSnippets();
+    }
+
+    function subscribeSSE() {
+      const url = `/api/events?sessionId=${encodeURIComponent(currentSessionId)}&passcode=${encodeURIComponent(currentPasscode)}`;
+      const sse = new EventSource(url);
+      sse.onmessage = (e) => {
+        try {
+          const data = JSON.parse(e.data);
+          updateUIState(data);
+        } catch (err) {}
+      };
+    }
+
+    function handleSendSubmit(e) {
+      e.preventDefault();
+      const phone = document.getElementById('targetPhone').value.trim();
+      const message = document.getElementById('messageContent').value.trim();
+      const sendBtn = document.getElementById('sendBtn');
+      const respContainer = document.getElementById('responseContainer');
+      const respText = document.getElementById('responseText');
+
+      if (!phone || !message) return;
+
+      sendBtn.disabled = true;
+      sendBtn.innerText = 'Dispatching message...';
+
+      fetch(`/api/messages/send`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-session-id': currentSessionId,
+          'x-session-passcode': currentPasscode
+        },
+        body: JSON.stringify({ to: phone, message })
+      })
+      .then(async res => {
+        const json = await res.json();
+        respContainer.classList.remove('hidden');
+        respText.innerText = JSON.stringify(json, null, 2);
+        if (res.ok && json.success) {
+          showToast('Message dispatched successfully!', 'success');
+          document.getElementById('responseStatusBadge').className = 'px-2.5 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30';
+          document.getElementById('responseStatusBadge').innerText = '200 SUCCESS';
+        } else {
+          showToast(json.error || 'Message dispatch failed', 'error');
+          document.getElementById('responseStatusBadge').className = 'px-2.5 py-0.5 rounded text-[10px] font-bold bg-rose-500/20 text-rose-400 border border-rose-500/30';
+          document.getElementById('responseStatusBadge').innerText = `${res.status} ERROR`;
+        }
+      })
+      .catch(err => {
+        respContainer.classList.remove('hidden');
+        respText.innerText = 'Error: ' + err.message;
+        showToast(err.message, 'error');
+      })
+      .finally(() => {
+        sendBtn.disabled = false;
+        sendBtn.innerHTML = '<i data-lucide="send" class="w-4 h-4"></i> Dispatch WhatsApp Message';
+        lucide.createIcons();
+      });
+    }
+
+    function restartSocket() {
+      fetch(`/api/restart`, {
+        method: 'POST',
+        headers: { 'x-session-id': currentSessionId, 'x-session-passcode': currentPasscode }
+      }).then(() => {
+        showToast('Restarting engine connection...', 'info');
+        fetchStatus();
+      });
+    }
+
+    function logoutSession() {
+      if (confirm('Log out WhatsApp account?')) {
+        fetch(`/api/logout`, {
+          method: 'POST',
+          headers: { 'x-session-id': currentSessionId, 'x-session-passcode': currentPasscode }
+        }).then(() => {
+          showToast('WhatsApp logged out successfully', 'info');
+          fetchStatus();
+        });
+      }
+    }
+
+    function switchTab(tab) {
+      activeTab = tab;
+      document.getElementById('tabCurl').className = tab === 'curl' ? 'px-3 py-1 rounded-lg bg-white text-black font-bold shadow-xs cursor-pointer' : 'px-3 py-1 rounded-lg text-neutral-500 hover:text-black font-bold cursor-pointer';
+      document.getElementById('tabJs').className = tab === 'js' ? 'px-3 py-1 rounded-lg bg-white text-black font-bold shadow-xs cursor-pointer' : 'px-3 py-1 rounded-lg text-neutral-500 hover:text-black font-bold cursor-pointer';
+      document.getElementById('tabPython').className = tab === 'python' ? 'px-3 py-1 rounded-lg bg-white text-black font-bold shadow-xs cursor-pointer' : 'px-3 py-1 rounded-lg text-neutral-500 hover:text-black font-bold cursor-pointer';
+      updateSnippets();
+    }
+
+    function updateSnippets() {
+      const serverUrl = window.location.origin;
+      const phone = document.getElementById('targetPhone')?.value.trim() || '919876543210';
+      const msg = (document.getElementById('messageContent')?.value.trim() || 'Hello from WhatsApp API!').replace(/"/g, '\\"');
+      const pass = currentPasscode || 'YOUR_PASSCODE';
+      const sess = currentSessionId || 'YOUR_SESSION_ID';
+
+      let code = '';
+      if (activeTab === 'curl') {
+        code = `curl -X POST "${serverUrl}/api/messages/send" \\\n  -H "Content-Type: application/json" \\\n  -H "x-session-id: ${sess}" \\\n  -H "x-session-passcode: ${pass}" \\\n  -d '{\n    "to": "${phone}",\n    "message": "${msg}"\n  }'`;
+      } else if (activeTab === 'js') {
+        code = `fetch("${serverUrl}/api/messages/send", {\n  method: "POST",\n  headers: {\n    "Content-Type": "application/json",\n    "x-session-id": "${sess}",\n    "x-session-passcode": "${pass}"\n  },\n  body: JSON.stringify({\n    to: "${phone}",\n    message: "${msg}"\n  })\n})\n.then(res => res.json())\n.then(data => console.log(data));`;
+      } else if (activeTab === 'python') {
+        code = `import requests\n\nurl = "${serverUrl}/api/messages/send"\nheaders = {\n    "Content-Type": "application/json",\n    "x-session-id": "${sess}",\n    "x-session-passcode": "${pass}"\n}\npayload = {\n    "to": "${phone}",\n    "message": "${msg}"\n}\n\nres = requests.post(url, json=payload, headers=headers)\nprint(res.json())`;
+      }
+      const snippetEl = document.getElementById('codeSnippet');
+      if (snippetEl) snippetEl.innerText = code;
+    }
+
+    function copyText(txt, label = 'Text') {
+      navigator.clipboard.writeText(txt);
+      showToast(`${label} copied to clipboard!`, 'success');
+    }
+
+    function copySnippet() {
+      const code = document.getElementById('codeSnippet').innerText;
+      navigator.clipboard.writeText(code);
+      showToast('API Code Snippet copied to clipboard!', 'success');
+    }
+
+    function showToast(text, type = 'info') {
+      const toast = document.getElementById('toast');
+      const toastText = document.getElementById('toastText');
+      toastText.innerText = text;
+
+      if (type === 'success') {
+        toast.className = 'fixed bottom-6 right-6 z-50 px-5 py-3.5 rounded-2xl apple-glass border border-black/10 text-black shadow-2xl flex items-center gap-3 text-xs font-bold transition-all';
+      } else if (type === 'error') {
+        toast.className = 'fixed bottom-6 right-6 z-50 px-5 py-3.5 rounded-2xl bg-rose-900 border border-rose-800 text-white shadow-2xl flex items-center gap-3 text-xs font-bold transition-all';
+      } else {
+        toast.className = 'fixed bottom-6 right-6 z-50 px-5 py-3.5 rounded-2xl apple-glass border border-black/10 text-black shadow-2xl flex items-center gap-3 text-xs font-bold transition-all';
+      }
+      toast.classList.remove('hidden');
+      setTimeout(() => toast.classList.add('hidden'), 3500);
+    }
+
+    // Init
+    lucide.createIcons();
+    fetchStatus();
+    subscribeSSE();
+    setInterval(fetchStatus, 2500);
   </script>
 </body>
 </html>
