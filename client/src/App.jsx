@@ -4,6 +4,7 @@ import {
   QrCode,
   RefreshCw,
   LogOut,
+  Lock,
   Key,
   Copy,
   Check,
@@ -18,7 +19,7 @@ import {
   MessageSquare,
   ShieldCheck
 } from 'lucide-react';
-import { getStoredSessionId, getSessionPasscode, hasStoredSession, logoutClientSession } from './utils/session';
+import { getStoredSessionId, getSessionPasscode, hasStoredSession, logoutClientSession, lockClientSession } from './utils/session';
 import {
   subscribeToEvents,
   getStatus,
@@ -129,6 +130,10 @@ export default function App() {
   const showToast = (text, type = 'info') => {
     setNotification({ text, type });
     setTimeout(() => setNotification(null), 4000);
+  };
+
+  const handleLockPanel = () => {
+    lockClientSession();
   };
 
   const handleLogout = async () => {

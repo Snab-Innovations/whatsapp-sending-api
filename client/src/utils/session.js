@@ -68,3 +68,10 @@ export function resetSessionId() {
   localStorage.removeItem(PASSCODE_KEY);
   window.location.reload();
 }
+
+export function lockClientSession() {
+  localStorage.removeItem(SESSION_KEY);
+  localStorage.removeItem(PASSCODE_KEY);
+  window.location.reload();
+}
+

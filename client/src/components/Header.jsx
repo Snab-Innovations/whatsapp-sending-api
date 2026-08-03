@@ -22,7 +22,7 @@ import {
   ShieldCheck,
   X
 } from 'lucide-react';
-import { clearSessionPasscode, getSessionPasscode, setSessionPasscode } from '../utils/session';
+import { clearSessionPasscode, getSessionPasscode, setSessionPasscode, lockClientSession } from '../utils/session';
 import { setPasscode as apiSetPasscode } from '../services/api';
 
 export default function Header({
@@ -232,10 +232,13 @@ export default function Header({
 
           <button
             onClick={() => {
-              clearSessionPasscode();
-              if (onLockSession) onLockSession();
+              if (onLockSession) {
+                onLockSession();
+              } else {
+                lockClientSession();
+              }
             }}
-            title="Lock Session & Require Passcode"
+            title="Lock Panel (Keep WhatsApp connected for API)"
             className="p-2 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-600 transition-colors border border-amber-200 flex items-center justify-center cursor-pointer"
           >
             <Lock className="w-4 h-4" />
