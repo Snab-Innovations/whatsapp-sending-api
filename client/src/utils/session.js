@@ -3,19 +3,34 @@
 const SESSION_KEY = 'whatsapp_saas_session_id';
 const PASSCODE_KEY = 'whatsapp_saas_session_passcode';
 
-export function getOrCreateSessionId() {
-  let sessionId = localStorage.getItem(SESSION_KEY);
-  if (!sessionId) {
-    sessionId = `user_${Math.random().toString(36).substring(2, 10)}_${Date.now().toString(36)}`;
-    localStorage.setItem(SESSION_KEY, sessionId);
-    const initialPasscode = Math.floor(100000 + Math.random() * 900000).toString();
-    setSessionPasscode(initialPasscode);
-  }
-  return sessionId;
+export function getStoredSessionId() {
+  return localStorage.getItem(SESSION_KEY) || '';
 }
 
 export function getSessionPasscode() {
   return localStorage.getItem(PASSCODE_KEY) || '';
+}
+
+export function hasStoredSession() {
+  return Boolean(localStorage.getItem(SESSION_KEY) && localStorage.getItem(PASSCODE_KEY));
+}
+
+export function getOrCreateSessionId() {
+  let sessionId = localStorage.getItem(SESSION_KEY);
+  if (!sessionId) {
+    // Generate temporary unauthenticated guest ID (do NOT store passcode in localStorage)
+    return `guest_${Math.random().toString(36).substring(2, 10)}`;
+  }
+  return sessionId;
+}
+
+export function setSessionCredentials(sessionId, passcode) {
+  if (sessionId) {
+    localStorage.setItem(SESSION_KEY, String(sessionId).trim());
+  }
+  if (passcode) {
+    localStorage.setItem(PASSCODE_KEY, String(passcode).trim());
+  }
 }
 
 export function setSessionPasscode(passcode) {
@@ -28,6 +43,12 @@ export function setSessionPasscode(passcode) {
 
 export function clearSessionPasscode() {
   localStorage.removeItem(PASSCODE_KEY);
+}
+
+export function logoutClientSession() {
+  localStorage.removeItem(SESSION_KEY);
+  localStorage.removeItem(PASSCODE_KEY);
+  window.location.reload();
 }
 
 export function switchSession(newSessionId, passcode = '') {
@@ -43,9 +64,7 @@ export function switchSession(newSessionId, passcode = '') {
 }
 
 export function resetSessionId() {
-  const newSessionId = `user_${Math.random().toString(36).substring(2, 10)}_${Date.now().toString(36)}`;
-  localStorage.setItem(SESSION_KEY, newSessionId);
-  const initialPasscode = Math.floor(100000 + Math.random() * 900000).toString();
-  setSessionPasscode(initialPasscode);
-  return newSessionId;
+  localStorage.removeItem(SESSION_KEY);
+  localStorage.removeItem(PASSCODE_KEY);
+  window.location.reload();
 }

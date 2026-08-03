@@ -324,11 +324,8 @@ app.use((req, res, next) => {
 
   let rawId = req.headers['x-session-id'] || req.query.sessionId;
   if (!rawId || typeof rawId !== 'string' || !rawId.trim() || rawId.trim() === 'default') {
-    if (sessionsMap.size > 0) {
-      rawId = Array.from(sessionsMap.keys())[0];
-    } else {
-      rawId = generateRandomSessionId();
-    }
+    // Security Fix: Never fall back to existing active sessions in memory!
+    rawId = generateRandomSessionId();
   }
 
   const session = getOrCreateSession(rawId.trim());
@@ -377,14 +374,14 @@ app.get('/api/status', (req, res) => {
   const session = req.sessionInstance;
   const clientPasscode = req.headers['x-session-passcode'] || req.query.passcode;
   const isUnlocked = Boolean(
-    !session.passcode ||
-    (clientPasscode && String(clientPasscode).trim() === String(session.passcode).trim())
+    session.passcode &&
+    clientPasscode &&
+    String(clientPasscode).trim() === String(session.passcode).trim()
   );
 
   res.json({
     ...session.clientState,
     sessionId: session.sessionId,
-    passcode: session.passcode,
     hasPasscode: Boolean(session.passcode),
     isLocked: !isUnlocked
   });

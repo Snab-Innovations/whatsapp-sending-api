@@ -1,4 +1,4 @@
-// API service layer for WhatsApp web chat viewer & Gemini AI Task Manager (Multi-Tenant)
+// API service layer for WhatsApp Message Sending API
 import { getOrCreateSessionId, getSessionPasscode } from '../utils/session';
 
 const API_BASE = import.meta.env.DEV ? (import.meta.env.VITE_SERVER_URL || '').replace(/\/$/, '') : '';
@@ -69,36 +69,16 @@ export async function getStatus() {
   return res.json();
 }
 
-export async function getChats() {
-  const res = await fetch(`${API_BASE}/api/chats`, { headers: getHeaders() });
-  if (!res.ok) {
-    const errorData = await res.json().catch(() => ({}));
-    throw new Error(errorData.error || 'Failed to fetch chats');
-  }
-  return res.json();
-}
-
-export async function getChatMessages(chatId, limit = 50) {
-  const res = await fetch(`${API_BASE}/api/chats/${encodeURIComponent(chatId)}/messages?limit=${limit}`, {
-    headers: getHeaders()
-  });
-  if (!res.ok) {
-    const errorData = await res.json().catch(() => ({}));
-    throw new Error(errorData.error || 'Failed to fetch messages');
-  }
-  return res.json();
-}
-
-export async function sendMessage(chatId, message) {
+export async function sendMessage(to, message) {
   const res = await fetch(`${API_BASE}/api/messages/send`, {
     method: 'POST',
     headers: getHeaders(),
-    body: JSON.stringify({ chatId, message })
+    body: JSON.stringify({ to, message })
   });
 
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({}));
-    throw new Error(errorData.error || 'Failed to send message');
+    throw new Error(errorData.message || errorData.error || 'Failed to send message');
   }
   return res.json();
 }
@@ -112,82 +92,20 @@ export async function logoutSession() {
   return res.json();
 }
 
+export async function createNewSession() {
+  const res = await fetch(`${API_BASE}/api/auth/new-session`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' }
+  });
+  if (!res.ok) throw new Error('Failed to create new session');
+  return res.json();
+}
+
 export async function restartClient() {
   const res = await fetch(`${API_BASE}/api/restart`, {
     method: 'POST',
     headers: getHeaders()
   });
   if (!res.ok) throw new Error('Restart failed');
-  return res.json();
-}
-
-export async function syncChats() {
-  const res = await fetch(`${API_BASE}/api/chats/sync`, {
-    method: 'POST',
-    headers: getHeaders()
-  });
-  if (!res.ok) throw new Error('Failed to sync chats');
-  return res.json();
-}
-
-// 📋 AI Task & Action Planner APIs
-export async function getTasks() {
-  const res = await fetch(`${API_BASE}/api/tasks`, { headers: getHeaders() });
-  if (!res.ok) throw new Error('Failed to fetch tasks');
-  return res.json();
-}
-
-export async function createTask(taskData) {
-  const res = await fetch(`${API_BASE}/api/tasks`, {
-    method: 'POST',
-    headers: getHeaders(),
-    body: JSON.stringify(taskData)
-  });
-  if (!res.ok) throw new Error('Failed to create task');
-  return res.json();
-}
-
-export async function updateTask(id, updates) {
-  const res = await fetch(`${API_BASE}/api/tasks/${id}`, {
-    method: 'PATCH',
-    headers: getHeaders(),
-    body: JSON.stringify(updates)
-  });
-  if (!res.ok) throw new Error('Failed to update task');
-  return res.json();
-}
-
-export async function deleteTask(id) {
-  const res = await fetch(`${API_BASE}/api/tasks/${id}`, {
-    method: 'DELETE',
-    headers: getHeaders()
-  });
-  if (!res.ok) throw new Error('Failed to delete task');
-  return res.json();
-}
-
-// 🤖 Gemini AI Reply Suggestions & Analytics
-export async function getAIReplySuggestions(chatId) {
-  const res = await fetch(`${API_BASE}/api/ai/replies`, {
-    method: 'POST',
-    headers: getHeaders(),
-    body: JSON.stringify({ chatId })
-  });
-  if (!res.ok) throw new Error('Failed to generate AI replies');
-  return res.json();
-}
-
-export async function getAnalytics() {
-  const res = await fetch(`${API_BASE}/api/ai/analytics`, { headers: getHeaders() });
-  if (!res.ok) throw new Error('Failed to fetch analytics');
-  return res.json();
-}
-
-export async function analyzeAllMessages() {
-  const res = await fetch(`${API_BASE}/api/ai/analyze-all`, {
-    method: 'POST',
-    headers: getHeaders()
-  });
-  if (!res.ok) throw new Error('Failed to run bulk analysis');
   return res.json();
 }

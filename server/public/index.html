@@ -720,16 +720,12 @@
       const qrImageState = document.getElementById('qrImageState');
       const qrImage = document.getElementById('qrImage');
 
-      if (data.sessionId && data.sessionId !== 'default') {
-        currentSessionId = data.sessionId;
-        localStorage.setItem('WHATSAPP_SESSION_ID', data.sessionId);
-      }
-      if (data.passcode) {
-        currentPasscode = data.passcode;
-        localStorage.setItem('WHATSAPP_PASSCODE', data.passcode);
-      }
+      const hasStoredAuth = Boolean(
+        localStorage.getItem('WHATSAPP_SESSION_ID') &&
+        localStorage.getItem('WHATSAPP_PASSCODE')
+      );
 
-      if (currentStatus === 'READY' && !data.isLocked) {
+      if (currentStatus === 'READY' && !data.isLocked && hasStoredAuth) {
         // STEP 2: REVEAL LINKED SUCCESS BANNER + CREDENTIALS + SENDER FORM
         stepQrView.classList.add('hidden');
         stepConnectedView.classList.remove('hidden');
@@ -846,10 +842,14 @@
         fetch(`/api/logout`, {
           method: 'POST',
           headers: { 'x-session-id': currentSessionId, 'x-session-passcode': currentPasscode }
-        }).then(() => {
-          showToast('WhatsApp logged out successfully', 'info');
-          fetchStatus();
-        });
+        }).catch(() => null);
+
+        localStorage.removeItem('WHATSAPP_SESSION_ID');
+        localStorage.removeItem('WHATSAPP_PASSCODE');
+        currentSessionId = '';
+        currentPasscode = '';
+        showToast('WhatsApp logged out successfully', 'info');
+        window.location.reload();
       }
     }
 

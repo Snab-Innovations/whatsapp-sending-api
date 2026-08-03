@@ -14,8 +14,8 @@ import {
   ShieldAlert,
   Loader2
 } from 'lucide-react';
-import { switchSession, resetSessionId, setSessionPasscode } from '../utils/session';
-import { verifyPasscode } from '../services/api';
+import { switchSession, resetSessionId, setSessionPasscode, hasStoredSession, setSessionCredentials } from '../utils/session';
+import { verifyPasscode, createNewSession } from '../services/api';
 
 export default function AuthModal({
   clientState,
@@ -26,11 +26,16 @@ export default function AuthModal({
 }) {
   const { status, qrCodeDataUrl, error: serverError, isLocked } = clientState;
 
-  // Active view: 'QR' | 'LOGIN' | 'UNLOCK'
-  const [activeMode, setActiveMode] = useState(isLocked ? 'UNLOCK' : 'QR');
+  // Active view: 'LOGIN' | 'QR' | 'UNLOCK'
+  const [activeMode, setActiveMode] = useState(() => {
+    if (!hasStoredSession()) return 'LOGIN';
+    return isLocked ? 'UNLOCK' : 'QR';
+  });
 
   useEffect(() => {
-    if (isLocked) {
+    if (!hasStoredSession()) {
+      setActiveMode('LOGIN');
+    } else if (isLocked) {
       setActiveMode('UNLOCK');
     }
   }, [isLocked]);
@@ -45,6 +50,21 @@ export default function AuthModal({
   const [unlockPasscode, setUnlockPasscode] = useState('');
   const [unlockError, setUnlockError] = useState('');
   const [unlockLoading, setUnlockLoading] = useState(false);
+
+  const handleSelectQrMode = async () => {
+    setActiveMode('QR');
+    if (!hasStoredSession()) {
+      try {
+        const newSess = await createNewSession();
+        if (newSess && newSess.sessionId && newSess.passcode) {
+          setSessionCredentials(newSess.sessionId, newSess.passcode);
+          window.location.reload();
+        }
+      } catch (err) {
+        console.error('Failed to create new QR pairing session:', err);
+      }
+    }
+  };
 
   const handleExistingSessionLogin = async (e) => {
     e.preventDefault();
@@ -88,9 +108,17 @@ export default function AuthModal({
     }
   };
 
-  const handleNewSession = () => {
-    resetSessionId();
-    window.location.reload();
+  const handleNewSession = async () => {
+    try {
+      const newSess = await createNewSession();
+      if (newSess && newSess.sessionId && newSess.passcode) {
+        setSessionCredentials(newSess.sessionId, newSess.passcode);
+        window.location.reload();
+      }
+    } catch (err) {
+      resetSessionId();
+      window.location.reload();
+    }
   };
 
   return (
@@ -103,18 +131,6 @@ export default function AuthModal({
         <div className="bg-slate-100/80 p-1.5 border-b border-slate-200 flex items-center gap-1">
           <button
             type="button"
-            onClick={() => setActiveMode('QR')}
-            className={`flex-1 py-2 px-3 rounded-2xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-              activeMode === 'QR'
-                ? 'bg-white text-[#0095f6] shadow-sm'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <QrCode className="w-3.5 h-3.5" /> Scan QR Code
-          </button>
-
-          <button
-            type="button"
             onClick={() => setActiveMode('LOGIN')}
             className={`flex-1 py-2 px-3 rounded-2xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
               activeMode === 'LOGIN'
@@ -125,7 +141,19 @@ export default function AuthModal({
             <UserCheck className="w-3.5 h-3.5" /> Log In
           </button>
 
-          {isLocked && (
+          <button
+            type="button"
+            onClick={handleSelectQrMode}
+            className={`flex-1 py-2 px-3 rounded-2xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+              activeMode === 'QR'
+                ? 'bg-white text-[#0095f6] shadow-sm'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <QrCode className="w-3.5 h-3.5" /> Scan QR Code
+          </button>
+
+          {isLocked && hasStoredSession() && (
             <button
               type="button"
               onClick={() => setActiveMode('UNLOCK')}
