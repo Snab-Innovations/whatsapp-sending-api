@@ -453,7 +453,11 @@ const handleSetCredentials = (req, res) => {
       session.sessionDir = newSessionDir;
       session.authPath = path.join(newSessionDir, 'baileys_auth_info');
       session.storePath = path.join(newSessionDir, 'store.json');
+      if (!fs.existsSync(session.authPath)) {
+        fs.mkdirSync(session.authPath, { recursive: true });
+      }
       sessionsMap.set(cleanNewId, session);
+
 
       updated = true;
       console.log(`[Session 🔄] Renamed session from "${oldId}" to "${cleanNewId}".`);
