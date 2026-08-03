@@ -22,6 +22,7 @@ const {
   jidNormalizedUser
 } = require('@whiskeysockets/baileys');
 
+const crypto = require('crypto');
 const app = express();
 const PORT = process.env.PORT || 5001;
 
@@ -52,7 +53,13 @@ if (!fs.existsSync(SESSIONS_DIR)) {
 const sessionsMap = new Map();
 
 function generateRandomSessionId() {
-  return 'sess_' + Math.random().toString(36).substring(2, 8);
+  let newId;
+  do {
+    const timestamp = Date.now().toString(36);
+    const randomHex = crypto.randomBytes(4).toString('hex');
+    newId = `sess_${timestamp}_${randomHex}`;
+  } while (sessionsMap.has(newId) || fs.existsSync(path.join(SESSIONS_DIR, newId)));
+  return newId;
 }
 
 function sanitizeSessionId(sessionId) {
@@ -63,7 +70,16 @@ function sanitizeSessionId(sessionId) {
 }
 
 function generatePasscode() {
-  return Math.floor(100000 + Math.random() * 900000).toString();
+  const existingPasscodes = new Set();
+  sessionsMap.forEach(s => {
+    if (s.passcode) existingPasscodes.add(String(s.passcode).trim());
+  });
+
+  let passcode;
+  do {
+    passcode = crypto.randomInt(100000, 999999).toString();
+  } while (existingPasscodes.has(passcode));
+  return passcode;
 }
 
 /**
