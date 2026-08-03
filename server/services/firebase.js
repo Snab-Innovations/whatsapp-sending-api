@@ -9,16 +9,16 @@ const {
 
 require('dotenv').config();
 
-const FIREBASE_PROJECT_ID = process.env.FIREBASE_PROJECT_ID || "whatsapp-api-snab";
+const FIREBASE_PROJECT_ID = process.env.FIREBASE_PROJECT_ID || "";
 
 const firebaseConfig = {
-  apiKey: process.env.FIREBASE_API_KEY || "AIzaSyChelYaSt260BW_vl-8n-p60b-l8Rr51cA",
-  authDomain: process.env.FIREBASE_AUTH_DOMAIN || `${FIREBASE_PROJECT_ID}.firebaseapp.com`,
+  apiKey: process.env.FIREBASE_API_KEY || "",
+  authDomain: process.env.FIREBASE_AUTH_DOMAIN || (FIREBASE_PROJECT_ID ? `${FIREBASE_PROJECT_ID}.firebaseapp.com` : ""),
   projectId: FIREBASE_PROJECT_ID,
-  storageBucket: process.env.FIREBASE_STORAGE_BUCKET || `${FIREBASE_PROJECT_ID}.firebasestorage.app`,
-  messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID || "769746608880",
-  appId: process.env.FIREBASE_APP_ID || "1:769746608880:web:a801f6888b83198f749835",
-  measurementId: process.env.FIREBASE_MEASUREMENT_ID || "G-P1KRJCNTCG"
+  storageBucket: process.env.FIREBASE_STORAGE_BUCKET || (FIREBASE_PROJECT_ID ? `${FIREBASE_PROJECT_ID}.firebasestorage.app` : ""),
+  messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID || "",
+  appId: process.env.FIREBASE_APP_ID || "",
+  measurementId: process.env.FIREBASE_MEASUREMENT_ID || ""
 };
 
 let app = null;
